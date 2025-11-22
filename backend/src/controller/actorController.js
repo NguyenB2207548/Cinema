@@ -1,0 +1,81 @@
+const db = require("../config/db.js");
+
+exports.createActor = async (req, res) => {
+  try {
+    const { fullname, nationality } = req.body;
+
+    if (!fullname || fullname.trim() === "") {
+      return res.status(400).json({ message: "Tên diễn viên là bắt buộc" });
+    }
+
+    const query = "INSERT INTO actor (fullname, nationality) VALUES (?, ?)";
+
+    const [result] = await db.execute(query, [
+      fullname.trim(),
+      nationality ? nationality.trim() : null,
+    ]);
+
+    return res.status(201).json({
+      message: "Thêm diễn viên thành công",
+      actor_id: result.insertId,
+      data: {
+        fullname: fullname.trim(),
+        nationality: nationality || null,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi thêm diễn viên:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+// UPDATE ACTOR
+exports.updateActor = async (req, res) => {
+  const { id } = req.params;
+  const { fullname, nationality } = req.body;
+
+  // 1. Validate dữ liệu
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu ID diễn viên" });
+  }
+  if (!fullname || fullname.trim() === "") {
+    return res
+      .status(400)
+      .json({ message: "Tên diễn viên không được để trống" });
+  }
+
+  try {
+    // 2. Thực hiện lệnh UPDATE
+    // Sử dụng logic: Nếu nationality không gửi lên (undefined) -> lưu là NULL
+    const query = `
+            UPDATE actor 
+            SET fullname = ?, nationality = ? 
+            WHERE actor_id = ?
+        `;
+
+    const [result] = await db.execute(query, [
+      fullname.trim(),
+      nationality ? nationality.trim() : null, // Xử lý null
+      id,
+    ]);
+
+    // 3. Kiểm tra xem có dòng nào được update không
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy diễn viên để sửa" });
+    }
+
+    return res.status(200).json({
+      message: "Cập nhật thông tin diễn viên thành công",
+      data: {
+        actor_id: id,
+        fullname: fullname.trim(),
+        nationality: nationality || null,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi cập nhật diễn viên:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
