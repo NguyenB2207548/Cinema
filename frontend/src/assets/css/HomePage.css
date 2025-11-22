@@ -1,0 +1,115 @@
+/* ===========================================
+   WRAPPER
+=========================================== */
+.homepage-wrapper {
+  background-color: #fff;
+  min-height: 100vh;
+}
+
+/* ===========================================
+   FILTER BAR (MÀU VÀNG)
+=========================================== */
+.filter-bar {
+  background-color: #cca340;
+  height: 50px;
+  color: #fff;
+}
+
+.filter-item {
+  margin-right: 30px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.filter-container {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto; /* canh giữa */
+  display: flex;
+  align-items: center;
+  gap: 24px; /* khoảng cách giữa các mục */
+  padding: 12px 0;
+}
+
+.filter-item.active {
+  border-bottom: 2px solid white;
+}
+
+/* ===========================================
+   SEARCH SECTION (NỀN TỐI)
+=========================================== */
+.search-section {
+  background-color: #0b1120;
+}
+
+/* Tìm bằng ảnh */
+.search-image-box {
+  border: 2px dashed #ccc;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  height: 200px;
+  cursor: pointer;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.search-image-icon {
+  color: #cca340;
+}
+
+/* Tìm kiếm ngữ nghĩa */
+.semantic-box {
+  border-radius: 10px;
+}
+
+.semantic-input {
+  height: 100%;
+  border-radius: 10px;
+  resize: none;
+}
+
+.semantic-search-icon {
+  position: absolute;
+  right: 15px;
+  bottom: 15px;
+  color: #cca340;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ===========================================
+   LIST MOVIES
+=========================================== */
+.movie-title-section {
+  font-weight: bold;
+  border-bottom: 3px solid #ffc107;
+  display: inline-block;
+  padding-bottom: 4px;
+  margin-bottom: 30px;
+}
+
+.movie-img-wrapper {
+  overflow: hidden;
+  border-radius: 10px 10px 0 0;
+}
+
+.movie-img {
+  height: 300px;
+  object-fit: cover;
+}
+
+.btn-book {
+  background-color: #cca340 !important;
+  border: none;
+  color: white;
+  font-weight: bold;
+  margin-top: auto;
+  width: 100%;
+}
+
+.movie-card {
+  border-radius: 10px;
+}

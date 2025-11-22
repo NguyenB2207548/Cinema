@@ -1,0 +1,96 @@
+/* Register.css */
+
+/* Màu chủ đạo */
+:root {
+  --main-gold: #cca340;
+  --main-gold-hover: #b38b2e;
+}
+
+.register-container {
+  min-height: calc(100vh - 80px); /* Trừ đi chiều cao header */
+  background-color: #fff;
+  position: relative;
+  /* Nếu bạn có ảnh nền phim cuộn/clapboard mờ ở góc, thêm vào đây:
+  background-image: url('/path/to/bg-left.png'), url('/path/to/bg-right.png');
+  background-position: left bottom, right bottom;
+  background-repeat: no-repeat, no-repeat;
+  */
+}
+
+/* Tiêu đề có gạch chân vàng */
+.register-title {
+  font-weight: 700;
+  color: #333;
+  display: inline-block;
+  border-bottom: 3px solid var(--main-gold);
+  padding-bottom: 5px;
+  margin-bottom: 20px;
+}
+
+/* Tùy chỉnh ô input của Bootstrap */
+.custom-input {
+  border-radius: 5px;
+  border: 1px solid #ced4da;
+  padding: 10px 15px;
+}
+
+/* Đổi màu viền xanh mặc định của Bootstrap thành màu vàng khi focus */
+.custom-input:focus {
+  border-color: var(--main-gold);
+  box-shadow: 0 0 0 0.25rem rgba(204, 163, 64, 0.25);
+}
+
+/* Label đậm màu */
+.form-label {
+  font-weight: 600;
+  color: #4a4a4a;
+  margin-bottom: 5px;
+}
+
+/* Nút đăng ký */
+.btn-gold {
+  background-color: var(--main-gold);
+  border: none;
+  color: white;
+  font-weight: bold;
+  padding: 10px;
+  border-radius: 25px; /* Bo tròn nhiều như trong ảnh */
+  transition: all 0.3s;
+}
+
+.btn-gold:hover {
+  background-color: var(--main-gold-hover);
+  color: white;
+}
+
+/* Link đăng nhập */
+.login-link {
+  color: var(--main-gold);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+  color: var(--main-gold-hover);
+}
+
+.custom-checkbox {
+  transform: scale(0.9); /* 0.7 hoặc 0.6 tùy bạn */
+  accent-color: #cca340; /* giữ màu vàng */
+  cursor: pointer;
+  border: 2px solid #cca340 !important;
+}
+
+.register-frame {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  padding: 40px;
+  transition: all 0.3s ease-in-out;
+}
+
+.register-container {
+  background-color: #f8f9fa;
+}

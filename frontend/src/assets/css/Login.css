@@ -1,0 +1,105 @@
+/* Login.css */
+
+/* Kế thừa các biến màu từ file trước */
+:root {
+  --main-gold: #cca340;
+  --main-gold-hover: #b38b2e;
+}
+
+.login-container {
+  min-height: calc(100vh - 80px);
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+}
+
+/* Tiêu đề có gạch chân vàng (giống trang đăng ký) */
+.auth-title {
+  font-weight: 700;
+  color: #333;
+  display: inline-block;
+  border-bottom: 3px solid var(--main-gold);
+  padding-bottom: 5px;
+  margin-bottom: 25px;
+}
+
+/* Tùy chỉnh ô input */
+.custom-input {
+  border-radius: 5px;
+  border: 1px solid #ced4da;
+  padding: 12px 15px; /* Padding rộng hơn chút cho giống ảnh */
+}
+
+.custom-input:focus {
+  border-color: var(--main-gold);
+  box-shadow: 0 0 0 0.25rem rgba(204, 163, 64, 0.25);
+}
+
+.form-label {
+  font-weight: 600;
+  color: #4a4a4a;
+  margin-bottom: 8px;
+}
+
+/* Link Quên mật khẩu */
+.forgot-password-link {
+  color: #999; /* Màu xám nhạt hoặc vàng tùy ý, trong ảnh là màu vàng */
+  color: var(--main-gold);
+  font-size: 0.95rem;
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.forgot-password-link:hover {
+  color: var(--main-gold-hover);
+  text-decoration: underline;
+}
+
+/* Nút Đăng nhập */
+.btn-gold {
+  background-color: var(--main-gold);
+  border: none;
+  color: white;
+  font-weight: bold;
+  padding: 12px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  transition: all 0.3s;
+}
+
+.btn-gold:hover {
+  background-color: var(--main-gold-hover);
+  color: white;
+}
+
+/* Link Đăng ký ngay */
+.register-redirect {
+  margin-top: 15px;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.register-link {
+  color: var(--main-gold);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-link:hover {
+  text-decoration: underline;
+}
+
+.login-frame {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  padding: 40px;
+  transition: all 0.3s ease-in-out;
+}
+
+.login-container {
+  background-color: #f8f9fa;
+}
