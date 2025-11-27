@@ -1,0 +1,137 @@
+/* Admin.css */
+:root {
+  --admin-bg-dark: #0b1220;
+  --admin-sidebar-width: 250px;
+  --admin-gold: #cca340;
+}
+
+body {
+  background-color: #f4f6f9; /* Màu nền xám nhạt cho phần nội dung */
+}
+
+/* --- HEADER --- */
+.admin-header {
+  height: 60px;
+  background-color: var(--admin-bg-dark);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  border-bottom: 1px solid #333;
+}
+
+.admin-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+.admin-logo span {
+  color: var(--admin-gold);
+}
+
+/* --- SIDEBAR --- */
+.admin-sidebar {
+  width: var(--admin-sidebar-width);
+  background-color: #fff;
+  position: fixed;
+  top: 60px; /* Bằng chiều cao header */
+  bottom: 0;
+  left: 0;
+  overflow-y: auto;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  padding-top: 20px;
+}
+
+.sidebar-item {
+  padding: 12px 20px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: 0.2s;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+  background-color: #f0f0f0;
+  color: var(--admin-bg-dark);
+  border-right: 3px solid var(--admin-gold);
+}
+
+.sidebar-icon {
+  width: 24px;
+  margin-right: 10px;
+}
+
+/* Submenu (Dữ liệu bổ sung) */
+.submenu {
+  background-color: #fafafa;
+  padding-left: 20px;
+}
+.submenu-item {
+  padding: 8px 20px 8px 45px;
+  font-size: 0.9rem;
+  color: #666;
+  display: block;
+  text-decoration: none;
+}
+.submenu-item:hover {
+  color: var(--admin-gold);
+}
+
+/* --- MAIN CONTENT --- */
+.admin-content {
+  margin-top: 60px;
+  margin-left: var(--admin-sidebar-width);
+  padding: 20px;
+  min-height: 100vh;
+}
+
+/* --- DASHBOARD WIDGETS --- */
+/* Quick Action Buttons */
+.quick-action-btn {
+  background-color: #1a2236; /* Màu xanh đen */
+  color: white;
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  cursor: pointer;
+  transition: 0.2s;
+  border: 1px solid transparent;
+}
+.quick-action-btn:hover {
+  border-color: var(--admin-gold);
+  background-color: #252f46;
+}
+.quick-icon {
+  color: var(--admin-gold);
+  font-size: 1.5rem;
+  margin-bottom: 5px;
+}
+
+/* Stats Card */
+.stats-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+.stats-title {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+.stats-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #333;
+}
