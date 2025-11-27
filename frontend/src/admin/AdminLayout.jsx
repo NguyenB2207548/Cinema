@@ -1,25 +1,23 @@
 import React from "react";
+import { Outlet } from "react-router-dom"; // 1. Import Outlet
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
-import DashboardHome from "./DashboardHome";
 import "../assets/css/Admin.css";
+
+// Lưu ý: Không import DashboardHome hay UserManager ở đây nữa
 
 const AdminLayout = () => {
   return (
     <div className="d-flex flex-column" style={{ minHeight: "100vh" }}>
-      {/* 1. Header cố định ở trên */}
       <AdminHeader />
 
-      {/* 2. Phần thân gồm Sidebar và Content */}
       <div className="d-flex flex-grow-1">
-        {/* Sidebar cố định bên trái */}
         <AdminSidebar />
 
-        {/* Nội dung chính bên phải */}
         <main className="admin-content flex-grow-1">
-          {/* Ở đây bạn có thể dùng React Router <Outlet/> nếu muốn đổi trang, 
-               hiện tại tôi để DashboardHome làm mặc định */}
-          <DashboardHome />
+          {/* 2. Thay DashboardHome bằng Outlet */}
+          {/* Outlet là nơi nội dung thay đổi sẽ hiển thị */}
+          <Outlet />
         </main>
       </div>
     </div>

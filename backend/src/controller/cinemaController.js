@@ -3,15 +3,25 @@ const db = require("../config/db.js");
 // GET ALL MOVIE
 exports.getAllMovies = async (req, res) => {
   try {
-    // 1. Lấy tham số phân trang từ URL (VD: ?page=1&limit=10)
-    // Nếu không gửi thì mặc định là trang 1, lấy 10 phim
+    // 1. Lấy tham số
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || ""; // <--- Lấy từ khóa tìm kiếm
     const offset = (page - 1) * limit;
 
-    // 2. Query lấy danh sách phim kèm thông tin gộp
-    // Sử dụng LEFT JOIN để phim nào chưa có diễn viên/thể loại vẫn hiện ra
-    const query = `
+    // 2. Chuẩn bị điều kiện WHERE động
+    // Mặc định luôn phải có is_deleted = FALSE
+    let whereClause = "m.is_deleted = FALSE";
+    let queryParams = [];
+
+    // Nếu có từ khóa tìm kiếm, nối thêm điều kiện vào chuỗi SQL
+    if (search) {
+      whereClause += " AND m.title LIKE ?";
+      queryParams.push(`%${search}%`);
+    }
+
+    // 3. Query lấy danh sách phim (Main Query)
+    const sqlData = `
             SELECT 
                 m.movie_id, 
                 m.title, 
@@ -19,35 +29,35 @@ exports.getAllMovies = async (req, res) => {
                 m.release_date, 
                 m.poster_url,
                 m.description,
-                -- Gộp tên thể loại thành chuỗi: "Hành động, Hài"
                 GROUP_CONCAT(DISTINCT g.name SEPARATOR ', ') AS genres,
-                -- Gộp tên đạo diễn
                 GROUP_CONCAT(DISTINCT d.fullname SEPARATOR ', ') AS directors
             FROM movie m
             LEFT JOIN movie_genre mg ON m.movie_id = mg.movie_id
             LEFT JOIN genre g ON mg.genre_id = g.genre_id
             LEFT JOIN movie_director md ON m.movie_id = md.movie_id
             LEFT JOIN director d ON md.director_id = d.director_id
-            WHERE m.is_deleted = FALSE -- QUAN TRỌNG: Chỉ lấy phim chưa xóa
+            WHERE ${whereClause}  -- <--- Chèn điều kiện động vào đây
             GROUP BY m.movie_id
-            ORDER BY m.release_date DESC -- Phim mới nhất lên đầu
+            ORDER BY m.release_date DESC
             LIMIT ? OFFSET ?
         `;
 
-    const [movies] = await db.execute(query, [
-      limit.toString(),
-      offset.toString(),
-    ]);
-    // Lưu ý: Một số phiên bản mysql2 yêu cầu tham số LIMIT phải là string hoặc số trực tiếp
+    // Gộp params tìm kiếm + params phân trang (limit, offset)
+    const dataParams = [...queryParams, limit.toString(), offset.toString()];
 
-    // 3. Query đếm tổng số phim (để Frontend biết có bao nhiêu trang)
-    const [countResult] = await db.execute(
-      "SELECT COUNT(*) as total FROM movie WHERE is_deleted = FALSE"
-    );
+    const [movies] = await db.execute(sqlData, dataParams);
+
+    // 4. Query đếm tổng số phim (Count Query)
+    // Cần đếm dựa trên cùng điều kiện tìm kiếm để phân trang đúng
+    const sqlCount = `SELECT COUNT(*) as total FROM movie m WHERE ${whereClause}`;
+
+    // Query count chỉ cần params tìm kiếm, không cần limit/offset
+    const [countResult] = await db.execute(sqlCount, queryParams);
+
     const totalMovies = countResult[0].total;
     const totalPages = Math.ceil(totalMovies / limit);
 
-    // 4. Trả về kết quả
+    // 5. Trả về kết quả
     return res.status(200).json({
       message: "Lấy danh sách phim thành công",
       meta: {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // Nhớ import useEffect
 import { Navbar, Container, Form, NavDropdown, Image } from "react-bootstrap";
 import {
   FaFilm,
@@ -9,6 +9,7 @@ import {
   FaUser,
 } from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../../assets/css/Header.css";
 
@@ -17,19 +18,51 @@ const Header = () => {
   const path = location.pathname;
   const navigate = useNavigate();
 
-  // --- GIẢ LẬP TRẠNG THÁI ĐĂNG NHẬP ---
-  // Trong thực tế, bạn lấy từ Redux hoặc localStorage
-  // Ví dụ: const user = JSON.parse(localStorage.getItem('user'));
-  const [user, setUser] = useState({
-    name: "Nguyễn Văn A",
-    avatar: "", // Để trống sẽ hiện icon mặc định màu vàng
+  // --- GIỮ NGUYÊN CODE CŨ CỦA BẠN (Khởi tạo lần đầu) ---
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        return {
+          name: decoded.full_name || decoded.username || "Người dùng",
+          avatar: "",
+        };
+      } catch (error) {
+        console.error("Token lỗi hoặc hết hạn", error);
+        localStorage.removeItem("token");
+        return null; // Trả về null thay vì object rỗng để logic UI bên dưới hoạt động đúng
+      }
+    }
+    return null; // Mặc định là null
   });
 
-  // Giả sử sau khi login xong, có user data (bạn có thể test bằng cách set cứng user = {})
-  // const user = { name: "Nguyễn Văn A", avatar: "https://via.placeholder.com/150" };
+  // --- THÊM ĐOẠN NÀY: Lắng nghe sự thay đổi URL để cập nhật lại State ---
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
+    // Nếu không có token (đã đăng xuất) mà state user vẫn còn dữ liệu -> Set về null
+    if (!token) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      setUser(null);
+    } else {
+      // Nếu có token (ví dụ đăng nhập xong chuyển trang), cập nhật lại user
+      try {
+        const decoded = jwtDecode(token);
+        setUser({
+          name: decoded.full_name || decoded.username || "Người dùng",
+          avatar: "",
+        });
+      } catch (error) {
+        setUser(null);
+        console.error(error);
+      }
+    }
+  }, [location.pathname]); // Chạy lại mỗi khi chuyển trang (ví dụ từ Admin -> Login)
+
+  // --- XỬ LÝ ĐĂNG XUẤT ---
   const handleLogout = () => {
-    // Xử lý đăng xuất
+    localStorage.removeItem("token");
     setUser(null);
     navigate("/login");
   };
@@ -37,7 +70,6 @@ const Header = () => {
   return (
     <Navbar className="header-navbar" expand="lg" variant="dark">
       <Container className="px-4 header-container">
-        {/* Logo */}
         <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
           <FaFilm className="logo-icon" />
           <span className="logo-text">
@@ -50,7 +82,6 @@ const Header = () => {
 
         <Navbar.Collapse id="basic-navbar-nav">
           <div className="ms-auto d-flex align-items-center gap-3 header-right">
-            {/* --- Ô tìm kiếm luôn nằm bên trái --- */}
             <div className="search-wrapper d-none d-md-block">
               <Form.Control
                 type="text"
@@ -60,7 +91,7 @@ const Header = () => {
               <FaSearch className="search-icon" />
             </div>
 
-            {/* --- BÊN PHẢI Ô TÌM KIẾM LÀ USER/AUTH --- */}
+            {/* Kiểm tra user có tồn tại không */}
             {user ? (
               <NavDropdown
                 title={

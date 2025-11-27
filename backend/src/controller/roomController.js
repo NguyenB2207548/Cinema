@@ -1,5 +1,22 @@
 const db = require("../config/db.js");
 
+exports.getAllRooms = async (req, res) => {
+  try {
+    // Lấy danh sách phòng, sắp xếp theo tên cho dễ tìm
+    const [rooms] = await db.execute(
+      "SELECT room_id, room_name, capacity, description FROM cinema_room"
+    );
+
+    return res.status(200).json({
+      message: "Lấy danh sách phòng thành công",
+      data: rooms,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách phòng:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
 /**
  * Hàm trợ giúp: Tạo danh sách các giá trị ghế dựa trên sức chứa.
  * Ví dụ: 12 ghế -> A1, A2, ..., A10, B1, B2

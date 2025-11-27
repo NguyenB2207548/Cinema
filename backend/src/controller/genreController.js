@@ -1,5 +1,50 @@
 const db = require("../config/db.js");
 
+exports.getAllGenres = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+    const offset = (page - 1) * limit;
+
+    let whereClause = "1=1";
+    let params = [];
+
+    if (search) {
+      whereClause += " AND name LIKE ?";
+      params.push(`%${search}%`);
+    }
+
+    // Query Data
+    const sqlData = `SELECT * FROM genre WHERE ${whereClause} ORDER BY genre_id DESC LIMIT ? OFFSET ?`;
+    const [genres] = await db.execute(sqlData, [
+      ...params,
+      String(limit),
+      String(offset),
+    ]);
+
+    // Query Count
+    const sqlCount = `SELECT COUNT(*) as total FROM genre WHERE ${whereClause}`;
+    const [countResult] = await db.execute(sqlCount, params);
+
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    res.status(200).json({
+      data: genres,
+      meta: {
+        current_page: page,
+        total_pages: totalPages,
+        total_items: totalItems,
+        limit,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
 exports.createGenre = async (req, res) => {
   try {
     // 1. Lấy dữ liệu từ body

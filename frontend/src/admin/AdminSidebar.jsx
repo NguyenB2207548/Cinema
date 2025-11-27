@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   FaHome,
   FaUsers,
@@ -14,23 +15,36 @@ import "../assets/css/Admin.css";
 const AdminSidebar = () => {
   const [isExtraOpen, setIsExtraOpen] = useState(true); // Mặc định mở
 
+  const location = useLocation();
+  const path = location.pathname;
+
+  // Hàm kiểm tra active: Nếu đường dẫn trùng khớp thì trả về 'active'
+  const getActiveClass = (route) => {
+    // So sánh chính xác hoặc so sánh tương đối (nếu cần)
+    return path === route ? "sidebar-item active" : "sidebar-item";
+  };
+
   return (
     <div className="admin-sidebar">
-      <div className="sidebar-item active">
+      <Link to="/admin" className={getActiveClass("/admin")}>
         <FaHome className="sidebar-icon" /> Dashboard
-      </div>
-      <div className="sidebar-item">
+      </Link>
+
+      <Link to="/admin/users" className={getActiveClass("/admin/users")}>
         <FaUsers className="sidebar-icon" /> Quản lý người dùng
-      </div>
-      <div className="sidebar-item">
+      </Link>
+
+      <Link to="/admin/movies" className={getActiveClass("/admin/movies")}>
         <FaFilm className="sidebar-icon" /> Quản lý phim
-      </div>
-      <div className="sidebar-item">
+      </Link>
+
+      <Link to="/admin/shows" className={getActiveClass("/admin/shows")}>
         <FaCalendarAlt className="sidebar-icon" /> Quản lý lịch chiếu
-      </div>
-      <div className="sidebar-item">
-        <FaBuilding className="sidebar-icon" /> Quản lý rạp & Phòng
-      </div>
+      </Link>
+
+      <Link to="/admin/rooms" className={getActiveClass("/admin/rooms")}>
+        <FaBuilding className="sidebar-icon" /> Quản lý Phòng
+      </Link>
 
       {/* Mục Dropdown */}
       <div
@@ -45,15 +59,18 @@ const AdminSidebar = () => {
 
       {isExtraOpen && (
         <div className="submenu">
-          <a href="#" className="submenu-item">
+          <Link to="/admin/genres" className={getActiveClass("/admin/genres")}>
             Thể loại
-          </a>
-          <a href="#" className="submenu-item">
+          </Link>
+          <Link to="/admin/actors" className={getActiveClass("/admin/genres")}>
             Diễn viên
-          </a>
-          <a href="#" className="submenu-item">
+          </Link>
+          <Link
+            to="/admin/directors"
+            className={getActiveClass("/admin/directors")}
+          >
             Đạo diễn
-          </a>
+          </Link>
         </div>
       )}
     </div>

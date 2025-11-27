@@ -135,3 +135,19 @@ body {
   font-weight: bold;
   color: #333;
 }
+
+.admin-header .dropdown-toggle.nav-link {
+  display: flex !important; /* Sử dụng Flexbox */
+  align-items: center !important; /* Căn giữa theo trục dọc */
+  gap: 8px; /* Khoảng cách giữa các phần tử */
+}
+
+/* 2. Tùy chỉnh mũi tên (::after) */
+.admin-header .dropdown-toggle.nav-link::after {
+  color: #cca340 !important; /* Đổi màu vàng */
+  border-top: 0.35em solid; /* Chỉnh độ dày mũi tên (tùy chọn) */
+  border-right: 0.35em solid transparent;
+  border-left: 0.35em solid transparent;
+  margin-left: 0 !important; /* Reset margin vì đã dùng gap ở cha */
+  margin-top: 2px; /* Vi chỉnh để mũi tên thẳng hàng mắt nhìn */
+}

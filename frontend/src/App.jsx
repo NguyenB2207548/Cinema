@@ -9,13 +9,19 @@ import Login from "./user/page/Login.jsx";
 // --- IMPORT ADMIN COMPONENTS ---
 import AdminLayout from "./admin/AdminLayout.jsx";
 import DashboardHome from "./admin/DashboardHome.jsx";
+import UserManager from "./admin/component/UserManager.jsx";
+import MovieManager from "./admin/component/MovieManager.jsx";
+import ShowTimeManager from "./admin/component/ShowTimeManager.jsx";
+import RoomManager from "./admin/component/RoomManager.jsx";
+import GenreManager from "./admin/component/GenreManager.jsx";
+import ActorManager from "./admin/component/ActorManager.jsx";
+import DirectorManager from "./admin/component/DirectorManager.jsx";
 
-// --- TẠO LAYOUT CHO USER (Header + Nội dung) ---
 const UserLayout = () => {
   return (
     <>
-      <Header /> {/* Header này chỉ hiện ở trang User */}
-      <Outlet /> {/* Nơi hiển thị HomePage, Login, Register... */}
+      <Header />
+      <Outlet />
     </>
   );
 };
@@ -32,6 +38,13 @@ function App() {
 
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<DashboardHome />} />
+          <Route path="users" element={<UserManager />} />
+          <Route path="movies" element={<MovieManager />} />
+          <Route path="shows" element={<ShowTimeManager />} />
+          <Route path="rooms" element={<RoomManager />} />
+          <Route path="genres" element={<GenreManager />} />
+          <Route path="actors" element={<ActorManager />} />
+          <Route path="directors" element={<DirectorManager />} />
         </Route>
       </Routes>
     </BrowserRouter>
