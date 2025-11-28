@@ -1,0 +1,65 @@
+.movie-detail-page {
+  background-color: #0b1220; /* Nền xanh đen đậm */
+  min-height: 100vh;
+  color: #fff;
+  padding-bottom: 50px;
+}
+
+/* Container giới hạn 1280px */
+.custom-container {
+  max-width: 1280px !important;
+  margin: 0 auto;
+}
+
+/* Poster phim */
+.movie-poster {
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  object-fit: cover;
+  aspect-ratio: 2/3; /* Tỷ lệ chuẩn poster phim */
+}
+
+/* Tiêu đề phim */
+.movie-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+/* Nhãn thông tin (Đạo diễn, Diễn viên...) */
+.info-label {
+  font-weight: 700;
+  color: #a0a0a0; /* Màu xám nhạt */
+  min-width: 120px;
+  display: inline-block;
+}
+
+/* Card lịch chiếu */
+.schedule-card {
+  background-color: #151f30; /* Nền card sáng hơn nền chính chút */
+  border: 1px solid #2e3b4e;
+  border-radius: 10px;
+  padding: 15px 20px;
+  transition: all 0.3s ease;
+}
+
+.schedule-card:hover {
+  border-color: #cca340;
+  transform: translateY(-2px);
+}
+
+/* Nút đặt vé màu vàng */
+.btn-booking {
+  background-color: #cca340;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 6px;
+}
+
+.btn-booking:hover {
+  background-color: #b38b2e;
+  color: #fff;
+}

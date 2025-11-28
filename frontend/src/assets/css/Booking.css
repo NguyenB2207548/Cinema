@@ -1,0 +1,95 @@
+/* Booking.css */
+.booking-page {
+  background-color: #0e1b2e;
+  min-height: 100vh;
+  color: white;
+  padding-bottom: 80px; /* Chừa chỗ cho thanh thanh toán */
+}
+
+/* Màn hình chiếu */
+.screen-container {
+  perspective: 1000px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.screen {
+  background: white;
+  height: 60px;
+  width: 80%;
+  transform: rotateX(-30deg) scale(0.8);
+  box-shadow: 0 30px 50px -10px rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  opacity: 0.7;
+}
+
+/* Lưới ghế */
+.seats-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.seat-row {
+  display: flex;
+  gap: 8px;
+}
+
+.seat-item {
+  width: 35px;
+  height: 35px;
+  border-radius: 8px;
+  background-color: #3e4c5e; /* Màu ghế thường */
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+  color: #aaa;
+}
+
+.seat-item:hover:not(.booked) {
+  background-color: #cca340; /* Màu khi hover */
+  color: white;
+}
+
+/* Trạng thái ghế */
+.seat-item.booked {
+  background-color: #4a4a4a; /* Đã bán */
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.seat-item.selected {
+  background-color: #cca340; /* Đang chọn */
+  color: white;
+  box-shadow: 0 0 10px #cca340;
+}
+
+.seat-item.vip {
+  border: 1px solid #cca340; /* Viền vàng cho VIP */
+}
+
+/* Thanh thanh toán cố định dưới đáy */
+.booking-summary-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #151f30;
+  padding: 15px 40px;
+  border-top: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* 
+.booking-page {
+  background-color: #0b1220 !important;
+  color: #ffffff !important;
+} */

@@ -9,6 +9,7 @@ import {
   FaFolderOpen,
   FaChevronDown,
   FaChevronUp,
+  FaTicketAlt,
 } from "react-icons/fa";
 import "../assets/css/Admin.css";
 
@@ -40,6 +41,10 @@ const AdminSidebar = () => {
 
       <Link to="/admin/shows" className={getActiveClass("/admin/shows")}>
         <FaCalendarAlt className="sidebar-icon" /> Quản lý lịch chiếu
+      </Link>
+
+      <Link to="/admin/booking" className={getActiveClass("/admin/bookings")}>
+        <FaTicketAlt className="sidebar-icon" /> Quản lý vé
       </Link>
 
       <Link to="/admin/rooms" className={getActiveClass("/admin/rooms")}>

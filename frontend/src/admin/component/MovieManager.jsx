@@ -55,7 +55,6 @@ const MovieManager = () => {
   useEffect(() => {
     const fetchAuxData = async () => {
       try {
-        // Gọi song song 3 API
         const [resGenres, resActors, resDirectors] = await Promise.all([
           fetch("http://localhost:3000/api/genre"),
           fetch("http://localhost:3000/api/actor"),
@@ -66,9 +65,12 @@ const MovieManager = () => {
         const actors = await resActors.json();
         const directors = await resDirectors.json();
 
-        setGenresList(genres);
-        setActorsList(actors);
-        setDirectorsList(directors);
+        // Backend trả về { data: [...] } hoặc mảng trực tiếp, xử lý linh hoạt
+        setGenresList(genres.data || (Array.isArray(genres) ? genres : []));
+        setActorsList(actors.data || (Array.isArray(actors) ? actors : []));
+        setDirectorsList(
+          directors.data || (Array.isArray(directors) ? directors : [])
+        );
       } catch (err) {
         console.error("Lỗi tải danh sách phụ trợ:", err);
       }
@@ -91,7 +93,7 @@ const MovieManager = () => {
       });
 
       const response = await fetch(
-        `http://localhost:3000/api/cinema?${params}`, // Đảm bảo endpoint đúng backend
+        `http://localhost:3000/api/cinema?${params}`,
         {
           method: "GET",
           headers: {
@@ -247,7 +249,7 @@ const MovieManager = () => {
         <Table hover className="align-middle">
           <thead className="bg-light">
             <tr>
-              <th style={{ width: "50px" }}>STT</th>
+              <th style={{ width: "50px" }}>ID</th>
               <th style={{ width: "80px" }}>Poster</th>
               <th style={{ width: "30%" }}>Tên phim</th>
               <th>Thời lượng</th>
@@ -420,7 +422,7 @@ const MovieManager = () => {
 
             {/* --- KHU VỰC CHỌN NHIỀU (MULTI-SELECT) --- */}
             <Row>
-              {/* 1. Chọn Thể loại (Dữ liệu thật từ API) */}
+              {/* 1. Chọn Thể loại */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Thể loại</Form.Label>
                 <div
@@ -430,13 +432,18 @@ const MovieManager = () => {
                   {genresList.length > 0 ? (
                     genresList.map((genre) => (
                       <Form.Check
-                        key={genre.id}
+                        key={genre.genre_id || genre.id}
                         type="checkbox"
                         label={genre.name}
-                        // Kiểm tra xem ID có trong mảng không
-                        checked={newMovie.genre_ids.includes(genre.id)}
+                        checked={newMovie.genre_ids.includes(
+                          genre.genre_id || genre.id
+                        )}
                         onChange={(e) =>
-                          handleMultiSelectChange(e, "genre_ids", genre.id)
+                          handleMultiSelectChange(
+                            e,
+                            "genre_ids",
+                            genre.genre_id || genre.id
+                          )
                         }
                       />
                     ))
@@ -446,7 +453,7 @@ const MovieManager = () => {
                 </div>
               </Col>
 
-              {/* 2. Chọn Đạo diễn */}
+              {/* 2. Chọn Đạo diễn (UPDATE: dùng director_id & fullname) */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Đạo diễn</Form.Label>
                 <div
@@ -456,12 +463,16 @@ const MovieManager = () => {
                   {directorsList.length > 0 ? (
                     directorsList.map((d) => (
                       <Form.Check
-                        key={d.id}
+                        key={d.director_id} // ID từ backend
                         type="checkbox"
-                        label={d.name}
-                        checked={newMovie.director_ids.includes(d.id)}
+                        label={d.fullname} // Tên từ backend
+                        checked={newMovie.director_ids.includes(d.director_id)}
                         onChange={(e) =>
-                          handleMultiSelectChange(e, "director_ids", d.id)
+                          handleMultiSelectChange(
+                            e,
+                            "director_ids",
+                            d.director_id
+                          )
                         }
                       />
                     ))
@@ -471,7 +482,7 @@ const MovieManager = () => {
                 </div>
               </Col>
 
-              {/* 3. Chọn Diễn viên */}
+              {/* 3. Chọn Diễn viên (UPDATE: dùng actor_id & fullname) */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Diễn viên</Form.Label>
                 <div
@@ -481,12 +492,12 @@ const MovieManager = () => {
                   {actorsList.length > 0 ? (
                     actorsList.map((a) => (
                       <Form.Check
-                        key={a.id}
+                        key={a.actor_id} // ID từ backend
                         type="checkbox"
-                        label={a.name}
-                        checked={newMovie.actor_ids.includes(a.id)}
+                        label={a.fullname} // Tên từ backend
+                        checked={newMovie.actor_ids.includes(a.actor_id)}
                         onChange={(e) =>
-                          handleMultiSelectChange(e, "actor_ids", a.id)
+                          handleMultiSelectChange(e, "actor_ids", a.actor_id)
                         }
                       />
                     ))

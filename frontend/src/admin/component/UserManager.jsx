@@ -166,7 +166,7 @@ const UserManager = () => {
   // RENDER UI
   // ==========================================
   return (
-    <div className="user-manager-container">
+    <div className="manager-container">
       {/* HEADER & TOOLBAR */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -202,7 +202,7 @@ const UserManager = () => {
 
       {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
-        <Table hover className="user-table align-middle">
+        <Table hover className="manager-table align-middle">
           <thead className="bg-light">
             <tr>
               <th>STT</th>
@@ -253,19 +253,12 @@ const UserManager = () => {
                       ? new Date(user.created_at).toLocaleDateString("vi-VN")
                       : "N/A"}
                   </td>
-                  <td>
-                    <div className="d-flex gap-2">
+                  <td className="text-center">
+                    <div className="d-flex justify-content-center gap-2">
                       <Button
-                        variant="dark"
+                        variant="outline-danger"
                         size="sm"
-                        className="action-btn btn-edit"
-                      >
-                        <FaEdit />
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        className="action-btn btn-delete"
+                        className="action-btn"
                       >
                         <FaTrash />
                       </Button>

@@ -10,8 +10,9 @@ import {
   FaUserTie,
   FaVideo,
   FaHome,
+  FaTicketAlt,
 } from "react-icons/fa";
-// import "../css/Manager.css"; // Hoặc file css admin của bạn
+// import "./css/Manager.css";
 
 const DashboardHome = () => {
   // Danh sách các mục quản lý
@@ -36,6 +37,13 @@ const DashboardHome = () => {
       icon: <FaCalendarAlt />,
       color: "#f1c40f", // Vàng
       desc: "Sắp xếp suất chiếu cho các phòng",
+    },
+    {
+      title: "Quản lý vé",
+      path: "/admin/booking",
+      icon: <FaTicketAlt />,
+      color: "#27ae60", // Xanh lá đậm
+      desc: "Xem lịch sử đặt vé và doanh thu",
     },
     {
       title: "Phòng chiếu",

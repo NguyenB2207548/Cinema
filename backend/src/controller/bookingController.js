@@ -142,3 +142,96 @@ exports.getHistory = async (req, res) => {
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };
+
+// GET: Lấy danh sách tất cả booking (Dành cho Admin)
+exports.getAllBookings = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || ""; // Tìm theo mã đơn hoặc tên user
+
+    let whereClause = "1=1";
+    let params = [];
+
+    if (search) {
+      whereClause +=
+        " AND (b.booking_id LIKE ? OR u.full_name LIKE ? OR u.username LIKE ?)";
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    // Query lấy dữ liệu
+    const sqlData = `
+      SELECT 
+        b.booking_id,
+        b.total_price,
+        b.booking_time,
+        b.status,
+        u.full_name,
+        u.email,
+        m.title AS movie_title,
+        r.room_name,
+        st.start_time,
+        -- Gom ghế lại thành chuỗi "A1, A2"
+        GROUP_CONCAT(CONCAT(s.row_seat, s.seat_number) SEPARATOR ', ') AS seats
+      FROM booking b
+      JOIN user u ON b.user_id = u.user_id
+      JOIN show_time st ON b.show_time_id = st.show_time_id
+      JOIN movie m ON st.movie_id = m.movie_id
+      JOIN cinema_room r ON st.room_id = r.room_id
+      JOIN ticket t ON b.booking_id = t.booking_id
+      JOIN seat s ON t.seat_id = s.seat_id
+      WHERE ${whereClause}
+      GROUP BY b.booking_id
+      ORDER BY b.booking_time DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    // Query đếm tổng (để phân trang)
+    const sqlCount = `
+      SELECT COUNT(DISTINCT b.booking_id) as total 
+      FROM booking b
+      JOIN user u ON b.user_id = u.user_id
+      WHERE ${whereClause}
+    `;
+
+    const [bookings] = await db.execute(sqlData, [
+      ...params,
+      String(limit),
+      String(offset),
+    ]);
+    const [countResult] = await db.execute(sqlCount, params);
+
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    res.status(200).json({
+      data: bookings,
+      meta: {
+        current_page: page,
+        total_pages: totalPages,
+        total_items: totalItems,
+        limit,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách booking:", error);
+    res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+// PUT: Cập nhật trạng thái Booking (Ví dụ: Chuyển từ Pending -> Paid)
+exports.updateBookingStatus = async (req, res) => {
+  const { booking_id, status } = req.body; // status: 'Paid', 'Cancelled'
+
+  try {
+    await db.execute("UPDATE booking SET status = ? WHERE booking_id = ?", [
+      status,
+      booking_id,
+    ]);
+    res.status(200).json({ message: "Cập nhật trạng thái thành công" });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi cập nhật" });
+  }
+};

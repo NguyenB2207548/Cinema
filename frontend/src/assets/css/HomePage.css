@@ -7,18 +7,16 @@
 }
 
 /* ===========================================
-   FILTER BAR (MÀU VÀNG)
+   FILTER BAR (MÀU VÀNG) & DROPDOWN
 =========================================== */
 .filter-bar {
   background-color: #cca340;
-  height: 50px;
+  /* Bỏ fixed height cứng nếu nội dung có thể tràn, 
+     hoặc giữ nguyên nếu muốn thanh mảnh */
+  min-height: 50px;
   color: #fff;
-}
-
-.filter-item {
-  margin-right: 30px;
-  font-weight: bold;
-  cursor: pointer;
+  position: relative; /* Đảm bảo z-index hoạt động tốt */
+  z-index: 100;
 }
 
 .filter-container {
@@ -29,10 +27,68 @@
   align-items: center;
   gap: 24px; /* khoảng cách giữa các mục */
   padding: 12px 0;
+
+  /* QUAN TRỌNG: Làm điểm neo cho dropdown tuyệt đối */
+  position: relative;
+}
+
+.filter-item {
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  padding: 5px 0; /* Tăng diện tích click */
+}
+
+.filter-item:hover {
+  opacity: 0.8;
 }
 
 .filter-item.active {
   border-bottom: 2px solid white;
+}
+
+/* --- DROPDOWN MENU --- */
+.genre-dropdown {
+  position: absolute;
+  top: 100%; /* Đẩy xuống ngay dưới đáy của filter-container */
+  left: 0; /* Căn trái khớp với container */
+  z-index: 1000; /* Nổi lên trên cùng */
+
+  min-width: 600px;
+  background-color: rgba(11, 18, 32, 0.98); /* Nền tối đậm (gần như đen) */
+  border: 1px solid #cca340; /* Viền vàng */
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Đổ bóng sâu */
+
+  margin-top: 10px; /* Cách thanh filter một chút cho thoáng */
+  padding: 20px;
+
+  /* Hiệu ứng hiện ra */
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Tam giác nhỏ chỉ lên trên (Trang trí) */
+.genre-dropdown::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 30px; /* Căn chỉnh vị trí tam giác ngay dưới chữ 'Thể loại' */
+  width: 12px;
+  height: 12px;
+  background-color: #cca340; /* Cùng màu viền */
+  transform: rotate(45deg);
+  z-index: -1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ===========================================
@@ -49,11 +105,16 @@
   background-color: rgba(255, 255, 255, 0.1);
   height: 200px;
   cursor: pointer;
-
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  transition: all 0.3s;
+}
+
+.search-image-box:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: #cca340;
 }
 
 .search-image-icon {
@@ -69,6 +130,7 @@
   height: 100%;
   border-radius: 10px;
   resize: none;
+  padding-right: 40px; /* Chừa chỗ cho icon search */
 }
 
 .semantic-search-icon {
@@ -85,20 +147,36 @@
 =========================================== */
 .movie-title-section {
   font-weight: bold;
-  border-bottom: 3px solid #ffc107;
+  border-bottom: 3px solid #cca340; /* Đồng bộ màu vàng */
   display: inline-block;
   padding-bottom: 4px;
   margin-bottom: 30px;
 }
 
+.movie-card {
+  border-radius: 10px;
+  overflow: hidden; /* Bo góc cả ảnh */
+  transition: transform 0.3s;
+}
+
+.movie-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
 .movie-img-wrapper {
   overflow: hidden;
-  border-radius: 10px 10px 0 0;
+  display: block; /* Để thẻ Link bao trọn ảnh */
 }
 
 .movie-img {
   height: 300px;
   object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.movie-card:hover .movie-img {
+  transform: scale(1.05); /* Zoom ảnh nhẹ khi hover */
 }
 
 .btn-book {
@@ -108,8 +186,9 @@
   font-weight: bold;
   margin-top: auto;
   width: 100%;
+  transition: background-color 0.2s;
 }
 
-.movie-card {
-  border-radius: 10px;
+.btn-book:hover {
+  background-color: #b38b2e !important;
 }

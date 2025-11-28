@@ -44,7 +44,7 @@
 }
 
 /* --- TABLE --- */
-.user-table th {
+.manager-table th {
   background-color: #f8f9fa; /* Nền header xám nhẹ */
   color: #495057;
   font-weight: 700;
@@ -52,7 +52,7 @@
   padding: 15px;
 }
 
-.user-table td {
+.manager-table td {
   padding: 15px;
   border-bottom: 1px solid #eee;
 }

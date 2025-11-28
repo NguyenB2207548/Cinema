@@ -1,0 +1,69 @@
+/* MyTickets.css */
+
+.my-tickets-page {
+  background-color: #0b1220; /* Nền tối */
+  min-height: 100vh;
+  padding-bottom: 50px;
+  color: #fff;
+}
+
+.ticket-card {
+  background-color: #151f30; /* Nền card sáng hơn nền chính chút */
+  border: 1px solid #2e3b4e;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.ticket-card:hover {
+  border-color: #cca340; /* Viền vàng khi hover */
+  transform: translateY(-3px);
+}
+
+.ticket-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  min-height: 200px; /* Đảm bảo chiều cao tối thiểu trên mobile */
+}
+
+.ticket-info {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.ticket-movie-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #cca340; /* Màu vàng thương hiệu */
+  margin-bottom: 10px;
+}
+
+.ticket-detail-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #d1d5db;
+  font-size: 0.95rem;
+}
+
+.ticket-detail-row svg {
+  color: #6c757d;
+  margin-right: 10px;
+  width: 16px;
+}
+
+.ticket-price {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.ticket-status-badge {
+  font-size: 0.85rem;
+  padding: 5px 12px;
+  border-radius: 20px;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // Nhớ import useEffect
+import React, { useState, useEffect } from "react";
 import { Navbar, Container, Form, NavDropdown, Image } from "react-bootstrap";
 import {
   FaFilm,
@@ -18,7 +18,10 @@ const Header = () => {
   const path = location.pathname;
   const navigate = useNavigate();
 
-  // --- GIỮ NGUYÊN CODE CŨ CỦA BẠN (Khởi tạo lần đầu) ---
+  // --- 1. STATE CHO Ô TÌM KIẾM ---
+  const [keyword, setKeyword] = useState("");
+
+  // --- GIỮ NGUYÊN CODE CŨ CỦA BẠN (User State) ---
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -31,22 +34,18 @@ const Header = () => {
       } catch (error) {
         console.error("Token lỗi hoặc hết hạn", error);
         localStorage.removeItem("token");
-        return null; // Trả về null thay vì object rỗng để logic UI bên dưới hoạt động đúng
+        return null;
       }
     }
-    return null; // Mặc định là null
+    return null;
   });
 
-  // --- THÊM ĐOẠN NÀY: Lắng nghe sự thay đổi URL để cập nhật lại State ---
+  // --- USER EFFECT (Cập nhật User khi đổi trang + Reset Search) ---
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    // Nếu không có token (đã đăng xuất) mà state user vẫn còn dữ liệu -> Set về null
     if (!token) {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       setUser(null);
     } else {
-      // Nếu có token (ví dụ đăng nhập xong chuyển trang), cập nhật lại user
       try {
         const decoded = jwtDecode(token);
         setUser({
@@ -55,16 +54,70 @@ const Header = () => {
         });
       } catch (error) {
         setUser(null);
-        console.error(error);
+        console.log(error);
       }
     }
-  }, [location.pathname]); // Chạy lại mỗi khi chuyển trang (ví dụ từ Admin -> Login)
+
+    // --- RESET Ô TÌM KIẾM ---
+    const params = new URLSearchParams(location.search);
+    const searchParam = params.get("search");
+
+    if (searchParam) {
+      setKeyword(searchParam);
+    } else {
+      setKeyword("");
+    }
+  }, [location.pathname, location.search]);
+
+  // --- BẮT SỰ KIỆN RELOAD (F5) ĐỂ REDIRECT VỀ TRANG CHỦ ---
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Lưu flag vào sessionStorage để biết là đang reload
+      sessionStorage.setItem("isReloading", "true");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Kiểm tra xem có phải vừa reload không
+    const isReloading = sessionStorage.getItem("isReloading");
+    if (isReloading === "true") {
+      sessionStorage.removeItem("isReloading");
+      // Nếu URL có search param thì redirect về trang chủ
+      if (location.search) {
+        navigate("/", { replace: true });
+      }
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   // --- XỬ LÝ ĐĂNG XUẤT ---
   const handleLogout = () => {
     localStorage.removeItem("token");
     setUser(null);
     navigate("/login");
+  };
+
+  // --- 2. XỬ LÝ TÌM KIẾM ---
+  const handleSearch = () => {
+    if (keyword.trim()) {
+      // Chuyển hướng về trang chủ kèm tham số search
+      // Ví dụ: /?search=Avengers
+      navigate(`/?search=${encodeURIComponent(keyword)}`);
+    } else {
+      // Nếu rỗng thì về trang chủ mặc định (xóa param search)
+      navigate("/");
+    }
+  };
+
+  // Xử lý khi nhấn Enter
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Ngăn submit form mặc định
+      handleSearch();
+    }
   };
 
   return (
@@ -82,16 +135,25 @@ const Header = () => {
 
         <Navbar.Collapse id="basic-navbar-nav">
           <div className="ms-auto d-flex align-items-center gap-3 header-right">
+            {/* --- Ô TÌM KIẾM --- */}
             <div className="search-wrapper d-none d-md-block">
               <Form.Control
                 type="text"
                 placeholder="Tìm kiếm phim..."
                 className="search-input"
+                // Binding dữ liệu
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
-              <FaSearch className="search-icon" />
+              <FaSearch
+                className="search-icon"
+                onClick={handleSearch} // Click icon cũng tìm
+                style={{ cursor: "pointer" }}
+              />
             </div>
 
-            {/* Kiểm tra user có tồn tại không */}
+            {/* User Dropdown / Login Buttons (Giữ nguyên) */}
             {user ? (
               <NavDropdown
                 title={
@@ -119,19 +181,16 @@ const Header = () => {
                 >
                   <FaUser className="me-2" /> Thông tin cá nhân
                 </NavDropdown.Item>
-
                 <NavDropdown.Item
                   as={Link}
-                  to="/my-tickets"
+                  to="/booking/history"
                   className="dropdown-item-custom"
                 >
                   <FaTicketAlt className="me-2" /> Vé của tôi
                 </NavDropdown.Item>
-
                 <NavDropdown.Divider
                   style={{ borderColor: "rgba(255,255,255,0.1)" }}
                 />
-
                 <NavDropdown.Item
                   onClick={handleLogout}
                   className="dropdown-item-custom text-danger"

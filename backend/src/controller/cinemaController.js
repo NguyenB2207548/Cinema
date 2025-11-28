@@ -6,22 +6,17 @@ exports.getAllMovies = async (req, res) => {
     // 1. Lấy tham số
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || ""; // <--- Lấy từ khóa tìm kiếm
     const offset = (page - 1) * limit;
 
-    // 2. Chuẩn bị điều kiện WHERE động
-    // Mặc định luôn phải có is_deleted = FALSE
-    let whereClause = "m.is_deleted = FALSE";
-    let queryParams = [];
+    // Các tham số lọc
+    const search = req.query.search || "";
+    const genreId = req.query.genre_id;
+    const actorId = req.query.actor_id; // <--- Mới
+    const directorId = req.query.director_id; // <--- Mới
 
-    // Nếu có từ khóa tìm kiếm, nối thêm điều kiện vào chuỗi SQL
-    if (search) {
-      whereClause += " AND m.title LIKE ?";
-      queryParams.push(`%${search}%`);
-    }
-
-    // 3. Query lấy danh sách phim (Main Query)
-    const sqlData = `
+    // 2. Khởi tạo câu lệnh SQL
+    // Mình đã bổ sung thêm JOIN bảng actor để hiển thị tên diễn viên trong kết quả
+    let sqlData = `
             SELECT 
                 m.movie_id, 
                 m.title, 
@@ -30,34 +25,81 @@ exports.getAllMovies = async (req, res) => {
                 m.poster_url,
                 m.description,
                 GROUP_CONCAT(DISTINCT g.name SEPARATOR ', ') AS genres,
-                GROUP_CONCAT(DISTINCT d.fullname SEPARATOR ', ') AS directors
+                GROUP_CONCAT(DISTINCT d.fullname SEPARATOR ', ') AS directors,
+                GROUP_CONCAT(DISTINCT a.fullname SEPARATOR ', ') AS actors
             FROM movie m
             LEFT JOIN movie_genre mg ON m.movie_id = mg.movie_id
             LEFT JOIN genre g ON mg.genre_id = g.genre_id
             LEFT JOIN movie_director md ON m.movie_id = md.movie_id
             LEFT JOIN director d ON md.director_id = d.director_id
-            WHERE ${whereClause}  -- <--- Chèn điều kiện động vào đây
-            GROUP BY m.movie_id
-            ORDER BY m.release_date DESC
-            LIMIT ? OFFSET ?
-        `;
+            LEFT JOIN movie_actor ma ON m.movie_id = ma.movie_id
+            LEFT JOIN actor a ON ma.actor_id = a.actor_id
+    `;
 
-    // Gộp params tìm kiếm + params phân trang (limit, offset)
-    const dataParams = [...queryParams, limit.toString(), offset.toString()];
+    // 3. Xử lý điều kiện lọc (Dynamic WHERE)
+    let whereConditions = ["m.is_deleted = FALSE"];
+    let queryParams = [];
 
-    const [movies] = await db.execute(sqlData, dataParams);
+    // --- Lọc theo Tên phim ---
+    if (search) {
+      whereConditions.push("m.title LIKE ?");
+      queryParams.push(`%${search}%`);
+    }
 
-    // 4. Query đếm tổng số phim (Count Query)
-    // Cần đếm dựa trên cùng điều kiện tìm kiếm để phân trang đúng
-    const sqlCount = `SELECT COUNT(*) as total FROM movie m WHERE ${whereClause}`;
+    // --- Lọc theo Thể loại ---
+    if (genreId) {
+      // Tìm các phim có ID nằm trong danh sách phim thuộc thể loại này
+      whereConditions.push(
+        "m.movie_id IN (SELECT movie_id FROM movie_genre WHERE genre_id = ?)"
+      );
+      queryParams.push(genreId);
+    }
 
-    // Query count chỉ cần params tìm kiếm, không cần limit/offset
-    const [countResult] = await db.execute(sqlCount, queryParams);
+    // --- Lọc theo Diễn viên (MỚI) ---
+    if (actorId) {
+      whereConditions.push(
+        "m.movie_id IN (SELECT movie_id FROM movie_actor WHERE actor_id = ?)"
+      );
+      queryParams.push(actorId);
+    }
 
+    // --- Lọc theo Đạo diễn (MỚI) ---
+    if (directorId) {
+      whereConditions.push(
+        "m.movie_id IN (SELECT movie_id FROM movie_director WHERE director_id = ?)"
+      );
+      queryParams.push(directorId);
+    }
+
+    // Gộp điều kiện WHERE
+    if (whereConditions.length > 0) {
+      sqlData += " WHERE " + whereConditions.join(" AND ");
+    }
+
+    // Group by & Order & Limit
+    sqlData += ` GROUP BY m.movie_id ORDER BY m.release_date DESC LIMIT ? OFFSET ?`;
+
+    // Thêm tham số cho limit và offset
+    queryParams.push(limit.toString(), offset.toString());
+
+    // 4. Thực thi query lấy dữ liệu
+    const [movies] = await db.execute(sqlData, queryParams);
+
+    // 5. Query đếm tổng (Dùng cho phân trang)
+    // Cần copy nguyên logic WHERE để đếm đúng số lượng sau khi lọc
+    let sqlCount = "SELECT COUNT(*) as total FROM movie m";
+
+    // Lấy params cho count (bỏ limit và offset ở cuối mảng queryParams ra)
+    let countParams = queryParams.slice(0, -2);
+
+    if (whereConditions.length > 0) {
+      sqlCount += " WHERE " + whereConditions.join(" AND ");
+    }
+
+    const [countResult] = await db.execute(sqlCount, countParams);
     const totalMovies = countResult[0].total;
     const totalPages = Math.ceil(totalMovies / limit);
 
-    // 5. Trả về kết quả
     return res.status(200).json({
       message: "Lấy danh sách phim thành công",
       meta: {
@@ -73,13 +115,13 @@ exports.getAllMovies = async (req, res) => {
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };
-
 // GET DETAIL MOVIE BY ID
 exports.getMovieDetail = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const query = `
+    // 1. Lấy thông tin chi tiết phim (Giữ nguyên)
+    const movieQuery = `
             SELECT 
                 m.*,
                 GROUP_CONCAT(DISTINCT g.name SEPARATOR ', ') AS genres,
@@ -96,31 +138,40 @@ exports.getMovieDetail = async (req, res) => {
             GROUP BY m.movie_id
         `;
 
-    const [rows] = await db.execute(query, [id]);
+    const [rows] = await db.execute(movieQuery, [id]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: "Phim không tồn tại" });
     }
 
-    // Lấy thêm các suất chiếu sắp tới của phim này (Optional)
+    // 2. Lấy lịch chiếu KÈM THEO TÊN PHÒNG (Updated)
+    // Giả sử bảng phòng của bạn tên là 'cinema_room' và cột tên là 'room_name'
+    // Nếu bảng tên là 'room' và cột là 'name', hãy sửa lại tương ứng nhé.
     const showtimeQuery = `
-            SELECT show_time_id, start_time, price, room_id 
-            FROM show_time 
-            WHERE movie_id = ? AND start_time > NOW() 
-            ORDER BY start_time ASC
+            SELECT 
+                st.show_time_id, 
+                st.start_time, 
+                st.price, 
+                st.room_id,
+                r.room_name  -- <--- Lấy thêm tên phòng
+            FROM show_time st
+            JOIN cinema_room r ON st.room_id = r.room_id -- <--- JOIN bảng phòng
+            WHERE st.movie_id = ? AND st.start_time > NOW() 
+            ORDER BY st.start_time ASC
         `;
+
     const [showtimes] = await db.execute(showtimeQuery, [id]);
 
-    // Gộp dữ liệu lại
+    // 3. Gộp dữ liệu lại
     const movieData = rows[0];
-    movieData.showtimes = showtimes; // Đính kèm lịch chiếu vào object phim
+    movieData.showtimes = showtimes; // Mảng showtimes bây giờ đã có room_name
 
     return res.status(200).json({
       message: "Lấy chi tiết phim thành công",
       data: movieData,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Lỗi lấy chi tiết phim:", error);
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };

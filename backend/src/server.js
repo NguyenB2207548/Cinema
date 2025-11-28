@@ -10,6 +10,7 @@ const actorRoute = require("./route/actor.js");
 const directorRoute = require("./route/director.js");
 const showtimeRoute = require("./route/showtime.js");
 const bookingRoute = require("./route/booking.js");
+const seatRouter = require("./route/seat.js");
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use("/api/actor", actorRoute);
 app.use("/api/director", directorRoute);
 app.use("/api/showtime", showtimeRoute);
 app.use("/api/booking", bookingRoute);
+app.use("/api/seat", seatRouter);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

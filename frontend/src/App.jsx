@@ -15,7 +15,11 @@ import ShowTimeManager from "./admin/component/ShowTimeManager.jsx";
 import RoomManager from "./admin/component/RoomManager.jsx";
 import GenreManager from "./admin/component/GenreManager.jsx";
 import ActorManager from "./admin/component/ActorManager.jsx";
+import BookingManager from "./admin/component/BookingManager.jsx";
 import DirectorManager from "./admin/component/DirectorManager.jsx";
+import MovieDetail from "./user/page/MovieDetail.jsx";
+import BookingPage from "./user/page/Booking.jsx";
+import HistoryBooking from "./user/page/HistoryBooking.jsx";
 
 const UserLayout = () => {
   return (
@@ -34,6 +38,9 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/detail/:id" element={<MovieDetail />} />
+          <Route path="/booking/:id" element={<BookingPage />} />
+          <Route path="/booking/history" element={<HistoryBooking />} />
         </Route>
 
         <Route path="/admin" element={<AdminLayout />}>
@@ -45,6 +52,7 @@ function App() {
           <Route path="genres" element={<GenreManager />} />
           <Route path="actors" element={<ActorManager />} />
           <Route path="directors" element={<DirectorManager />} />
+          <Route path="booking" element={<BookingManager />} />
         </Route>
       </Routes>
     </BrowserRouter>

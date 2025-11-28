@@ -244,7 +244,7 @@ const ShowTimeManager = () => {
 
       {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
-        <Table hover className="align-middle">
+        <Table hover className="manager-table align-middle">
           <thead className="bg-light">
             <tr>
               <th>STT</th>

@@ -173,7 +173,7 @@ const RoomManager = () => {
 
       {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
-        <Table hover className="align-middle">
+        <Table hover className="manager-table align-middle">
           <thead className="bg-light">
             <tr>
               <th style={{ width: "10%" }}>STT</th>
@@ -216,13 +216,6 @@ const RoomManager = () => {
                   </td>
                   <td className="text-center">
                     <div className="d-flex justify-content-center gap-2">
-                      <Button
-                        variant="outline-dark"
-                        size="sm"
-                        className="action-btn"
-                      >
-                        <FaEdit />
-                      </Button>
                       <Button
                         variant="outline-danger"
                         size="sm"
