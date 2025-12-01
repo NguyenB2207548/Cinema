@@ -1,5 +1,8 @@
 const db = require("../config/db.js");
-
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const path = require("path");
 // GET ALL MOVIE
 exports.getAllMovies = async (req, res) => {
   try {
@@ -178,79 +181,89 @@ exports.getMovieDetail = async (req, res) => {
 
 // ADD MOVIE
 exports.createMovie = async (req, res) => {
-  // 1. Lấy dữ liệu từ body request
+  // 1. Kiểm tra file upload
+  if (!req.file) {
+    return res.status(400).json({ message: "Vui lòng upload ảnh poster" });
+  }
+
+  // Tạo URL cho poster (Lưu đường dẫn tương đối để frontend dễ gọi)
+  // Ví dụ: /uploads/17000000-poster.jpg
+  const poster_url = `/uploads/${req.file.filename}`;
+  const posterPathForAI = req.file.path; // Đường dẫn tuyệt đối để gửi sang Flask
+
+  // 2. Lấy dữ liệu từ body (FormData biến mọi thứ thành string hoặc array string)
   const {
     title,
     description,
     duration,
     release_date,
-    poster_url,
-    external_ai_id,
-    genre_ids, // Mảng chứa ID thể loại: [1, 2]
-    actor_ids, // Mảng chứa ID diễn viên: [1, 2, 3]
-    director_ids, // Mảng chứa ID đạo diễn: [1]
+    // genre_ids, actor_ids, director_ids sẽ cần xử lý kỹ
   } = req.body;
+
+  // Hàm hỗ trợ parse mảng ID từ FormData (vì có thể là string, mảng hoặc null)
+  const parseIdArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data; // Nếu đã là mảng
+    return [data]; // Nếu là 1 số lẻ (string) thì đưa vào mảng
+  };
+
+  const genre_ids = parseIdArray(req.body.genre_ids);
+  const actor_ids = parseIdArray(req.body.actor_ids);
+  const director_ids = parseIdArray(req.body.director_ids);
 
   // Validate cơ bản
   if (!title) {
     return res.status(400).json({ message: "Tên phim là bắt buộc" });
   }
 
-  // Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
-  // (Nếu thêm phim thành công mà thêm diễn viên lỗi thì phải hoàn tác tất cả)
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
     // ---------------------------------------------------------
-    // BƯỚC 1: Insert vào bảng movie
+    // BƯỚC 1: Insert vào bảng movie (Bỏ external_ai_id)
     // ---------------------------------------------------------
     const movieQuery = `
-            INSERT INTO movie (title, description, duration, release_date, poster_url, external_ai_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `;
+      INSERT INTO movie (title, description, duration, release_date, poster_url)
+      VALUES (?, ?, ?, ?, ?)
+    `;
 
     const [result] = await connection.execute(movieQuery, [
       title,
       description,
       duration,
       release_date,
-      poster_url,
-      external_ai_id,
+      poster_url, // Lưu đường dẫn ảnh vào DB
     ]);
 
-    const newMovieId = result.insertId; // Lấy ID của phim vừa tạo
+    const newMovieId = result.insertId;
 
     // ---------------------------------------------------------
-    // BƯỚC 2: Insert vào các bảng liên kết (Nếu có dữ liệu gửi lên)
+    // BƯỚC 2: Insert vào các bảng liên kết
     // ---------------------------------------------------------
 
-    // a. Thêm Thể loại (movie_genre)
-    if (genre_ids && genre_ids.length > 0) {
-      const genreValues = genre_ids.map((genreId) => [newMovieId, genreId]);
-      // Cú pháp bulk insert: INSERT INTO ... VALUES (1,1), (1,2)
+    // a. Thêm Thể loại
+    if (genre_ids.length > 0) {
+      const genreValues = genre_ids.map((id) => [newMovieId, id]);
       await connection.query(
         "INSERT INTO movie_genre (movie_id, genre_id) VALUES ?",
         [genreValues]
       );
     }
 
-    // b. Thêm Diễn viên (movie_actor)
-    if (actor_ids && actor_ids.length > 0) {
-      const actorValues = actor_ids.map((actorId) => [newMovieId, actorId]);
+    // b. Thêm Diễn viên
+    if (actor_ids.length > 0) {
+      const actorValues = actor_ids.map((id) => [newMovieId, id]);
       await connection.query(
         "INSERT INTO movie_actor (movie_id, actor_id) VALUES ?",
         [actorValues]
       );
     }
 
-    // c. Thêm Đạo diễn (movie_director)
-    if (director_ids && director_ids.length > 0) {
-      const directorValues = director_ids.map((directorId) => [
-        newMovieId,
-        directorId,
-      ]);
+    // c. Thêm Đạo diễn
+    if (director_ids.length > 0) {
+      const directorValues = director_ids.map((id) => [newMovieId, id]);
       await connection.query(
         "INSERT INTO movie_director (movie_id, director_id) VALUES ?",
         [directorValues]
@@ -258,24 +271,59 @@ exports.createMovie = async (req, res) => {
     }
 
     // ---------------------------------------------------------
-    // BƯỚC 3: Commit transaction (Lưu chính thức)
+    // BƯỚC 3: Commit transaction (Lưu xong MySQL)
     // ---------------------------------------------------------
     await connection.commit();
+
+    // ---------------------------------------------------------
+    // BƯỚC 4: GỌI SANG FLASK AI SERVICE (Background)
+    // ---------------------------------------------------------
+    // Chúng ta không await phần này để user không phải chờ AI train xong
+    // Hoặc await nếu muốn đảm bảo đồng bộ. Ở đây mình dùng await để bắt lỗi luôn.
+
+    try {
+      const formData = new FormData();
+      formData.append("movie_id", newMovieId);
+      formData.append("overview", description || "");
+      // Đọc file từ ổ cứng để stream sang Flask
+      formData.append("poster", fs.createReadStream(posterPathForAI));
+
+      // Gọi API Flask (Giả sử Flask chạy port 5000)
+      await axios.post("http://localhost:5000/api/add_movie", formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+      });
+      console.log(`[AI Service] Đã index phim ID: ${newMovieId}`);
+    } catch (aiError) {
+      console.error(
+        "[AI Service Error] Không thể index phim:",
+        aiError.message
+      );
+      // Lưu ý: Vẫn trả về success cho client vì DB đã lưu thành công,
+      // chỉ có AI là lỗi (có thể chạy cronjob fix sau)
+    }
 
     return res.status(201).json({
       message: "Thêm phim thành công",
       movie_id: newMovieId,
+      poster_url: poster_url,
     });
   } catch (error) {
-    // Nếu có lỗi, rollback (hoàn tác) lại mọi thứ
+    // Nếu có lỗi DB, rollback và xóa ảnh đã upload
     await connection.rollback();
+
+    // Xóa file ảnh rác nếu transaction thất bại
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
     console.error("Lỗi thêm phim:", error);
     return res.status(500).json({
       message: "Lỗi Server khi thêm phim",
       error: error.message,
     });
   } finally {
-    // Giải phóng connection về pool
     connection.release();
   }
 };
@@ -525,5 +573,116 @@ exports.restoreMovie = async (req, res) => {
     res.status(200).json({ message: "Khôi phục phim thành công" });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+// TÌM KIẾM BẰNG AI
+
+exports.searchByImage = async (req, res) => {
+  // 1. Check file upload từ React
+  if (!req.file)
+    return res.status(400).json({ message: "Vui lòng upload ảnh để tìm kiếm" });
+
+  try {
+    // 2. Chuẩn bị form data gửi sang Python Flask
+    const formData = new FormData();
+    formData.append("image", fs.createReadStream(req.file.path));
+    formData.append("top_k", 5);
+
+    // 3. Gọi Flask AI Service
+    const aiResponse = await axios.post(
+      "http://localhost:5000/api/search_by_image",
+      formData,
+      {
+        headers: { ...formData.getHeaders() },
+      }
+    );
+
+    const aiResults = aiResponse.data.results;
+
+    if (!aiResults || aiResults.length === 0) {
+      // Xóa ảnh tạm nếu không tìm thấy kết quả
+      if (req.file && fs.existsSync(req.file.path))
+        fs.unlinkSync(req.file.path);
+      return res.json({ data: [] });
+    }
+
+    // 4. Lấy danh sách ID phim
+    const movieIds = aiResults.map((item) => item.movie_id);
+
+    // 5. Query MySQL
+    // --- SỬA LỖI TẠI ĐÂY ---
+    // Thay 'connection.query' thành 'db.query'
+    const query = `SELECT * FROM movie WHERE movie_id IN (?)`;
+    const [movies] = await db.query(query, [movieIds]);
+    // -----------------------
+
+    // Sắp xếp lại movies theo đúng thứ tự score từ AI
+    const sortedMovies = aiResults
+      .map((aiItem) => {
+        const foundMovie = movies.find((m) => m.movie_id === aiItem.movie_id);
+        // Gán thêm score vào object phim để hiển thị ở Frontend nếu muốn
+        return foundMovie ? { ...foundMovie, score: aiItem.score } : undefined;
+      })
+      .filter((item) => item !== undefined);
+
+    // Xóa ảnh tạm sau khi search xong
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    res.json({ data: sortedMovies });
+  } catch (error) {
+    // Xóa ảnh tạm nếu lỗi
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error("Search Error:", error.message);
+    res.status(500).json({ error: "Lỗi hệ thống tìm kiếm" });
+  }
+};
+
+exports.searchByText = async (req, res) => {
+  const { query } = req.body; // Lấy text người dùng nhập: "phim hoạt hình vui nhộn"
+
+  if (!query)
+    return res.status(400).json({ message: "Vui lòng nhập từ khóa tìm kiếm" });
+
+  try {
+    // 1. Gọi sang Flask AI Service (Bạn cần đảm bảo bên Flask đã có api /search_by_text như code Python cũ)
+    // Nếu Flask chưa có route POST /api/search_by_text nhận JSON, bạn cần update Flask.
+    // Tuy nhiên, giả sử Flask đã có hàm search_by_text (dựa trên notebook bạn gửi).
+
+    // Gửi JSON sang Flask
+    const aiResponse = await axios.post(
+      "http://localhost:5000/api/search_by_text",
+      {
+        query: query,
+        top_k: 8, // Lấy top 8 phim
+      }
+    );
+
+    const aiResults = aiResponse.data.results;
+    // Dạng: [{ movie_id: 1, score: 0.8 }, ...]
+
+    if (!aiResults || aiResults.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    // 2. Lấy thông tin từ MySQL
+    const movieIds = aiResults.map((item) => item.movie_id);
+    const [movies] = await db.query(
+      `SELECT * FROM movie WHERE movie_id IN (?)`,
+      [movieIds]
+    );
+
+    // 3. Sắp xếp kết quả theo AI score
+    const sortedMovies = aiResults
+      .map((aiItem) => {
+        const movie = movies.find((m) => m.movie_id === aiItem.movie_id);
+        return movie ? { ...movie, score: aiItem.score } : null;
+      })
+      .filter((item) => item !== null);
+
+    res.json({ data: sortedMovies });
+  } catch (error) {
+    console.error("Text Search Error:", error.message);
+    res.status(500).json({ error: "Lỗi tìm kiếm ngữ nghĩa" });
   }
 };

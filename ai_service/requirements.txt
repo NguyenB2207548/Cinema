@@ -1,0 +1,8 @@
+flask
+torch
+transformers
+pillow
+numpy
+faiss-cpu
+pyvi
+uwsgi

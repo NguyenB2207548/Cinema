@@ -10,7 +10,14 @@ import {
   Col,
   Alert,
 } from "react-bootstrap";
-import { FaSearch, FaPlus, FaEdit, FaTrash, FaSave } from "react-icons/fa";
+import {
+  FaSearch,
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSave,
+  FaImage,
+} from "react-icons/fa";
 import "../css/Manager.css";
 
 const MovieManager = () => {
@@ -36,21 +43,24 @@ const MovieManager = () => {
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
 
-  // Dữ liệu form thêm mới
+  // --- STATE FORM THÊM MỚI ---
+  // 1. Dữ liệu text
   const [newMovie, setNewMovie] = useState({
     title: "",
     description: "",
     duration: "",
     release_date: "",
-    poster_url: "",
-    external_ai_id: "",
     genre_ids: [],
     actor_ids: [],
     director_ids: [],
   });
 
+  // 2. Dữ liệu File ảnh
+  const [posterFile, setPosterFile] = useState(null); // File object để gửi lên server
+  const [posterPreview, setPosterPreview] = useState(null); // URL blob để preview ảnh
+
   // ==========================================
-  // 1. LẤY DỮ LIỆU PHỤ TRỢ (GENRE, ACTOR, DIRECTOR)
+  // 1. LẤY DỮ LIỆU PHỤ TRỢ
   // ==========================================
   useEffect(() => {
     const fetchAuxData = async () => {
@@ -65,7 +75,6 @@ const MovieManager = () => {
         const actors = await resActors.json();
         const directors = await resDirectors.json();
 
-        // Backend trả về { data: [...] } hoặc mảng trực tiếp, xử lý linh hoạt
         setGenresList(genres.data || (Array.isArray(genres) ? genres : []));
         setActorsList(actors.data || (Array.isArray(actors) ? actors : []));
         setDirectorsList(
@@ -80,7 +89,7 @@ const MovieManager = () => {
   }, []);
 
   // ==========================================
-  // 2. HÀM GỌI API LẤY DANH SÁCH PHIM (GET)
+  // 2. HÀM GỌI API LẤY DANH SÁCH PHIM
   // ==========================================
   const fetchMovies = useCallback(async () => {
     setLoading(true);
@@ -133,20 +142,21 @@ const MovieManager = () => {
   const handlePageChange = (page) => setCurrentPage(page);
 
   // ==========================================
-  // 4. XỬ LÝ FORM THÊM PHIM
+  // 4. XỬ LÝ FORM & FILE UPLOAD
   // ==========================================
   const handleShowModal = () => {
+    // Reset toàn bộ state form
     setNewMovie({
       title: "",
       description: "",
       duration: "",
       release_date: "",
-      poster_url: "",
-      external_ai_id: "",
       genre_ids: [],
       actor_ids: [],
       director_ids: [],
     });
+    setPosterFile(null);
+    setPosterPreview(null);
     setModalError("");
     setModalSuccess("");
     setShowModal(true);
@@ -159,7 +169,16 @@ const MovieManager = () => {
     setNewMovie({ ...newMovie, [name]: value });
   };
 
-  // Xử lý Checkbox (Multi-select)
+  // --- XỬ LÝ CHỌN FILE ẢNH ---
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPosterFile(file);
+      // Tạo URL tạm thời để hiển thị preview
+      setPosterPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleMultiSelectChange = (e, field, id) => {
     const isChecked = e.target.checked;
     setNewMovie((prev) => {
@@ -175,6 +194,7 @@ const MovieManager = () => {
     });
   };
 
+  // --- GỬI FORM DATA (MULTIPART) ---
   const handleCreateMovie = async () => {
     setModalError("");
     setModalSuccess("");
@@ -184,15 +204,41 @@ const MovieManager = () => {
       return;
     }
 
+    if (!posterFile) {
+      setModalError("Vui lòng chọn ảnh poster cho phim");
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
+
+      // 1. Tạo FormData thay vì JSON
+      const formData = new FormData();
+      formData.append("title", newMovie.title);
+      formData.append("description", newMovie.description);
+      formData.append("duration", newMovie.duration);
+      formData.append("release_date", newMovie.release_date);
+
+      // Với mảng, ta cần append từng phần tử hoặc stringify tùy backend xử lý
+      // Cách chuẩn thường dùng:
+      newMovie.genre_ids.forEach((id) => formData.append("genre_ids", id));
+      newMovie.actor_ids.forEach((id) => formData.append("actor_ids", id));
+      newMovie.director_ids.forEach((id) =>
+        formData.append("director_ids", id)
+      );
+
+      // Append File
+      formData.append("poster", posterFile);
+
+      // 2. Gửi Request
+      // LƯU Ý: KHÔNG set 'Content-Type': 'application/json'
+      // Để browser tự động set boundary cho multipart/form-data
       const response = await fetch("http://localhost:3000/api/cinema/add", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newMovie),
+        body: formData,
       });
 
       const data = await response.json();
@@ -201,19 +247,16 @@ const MovieManager = () => {
         throw new Error(data.message || "Thêm phim thất bại");
       }
 
-      setModalSuccess("Thêm phim thành công!");
+      setModalSuccess("Thêm phim thành công! Hệ thống đang xử lý AI Index...");
       setTimeout(() => {
         handleCloseModal();
         fetchMovies();
-      }, 1000);
+      }, 1500);
     } catch (error) {
       setModalError(error.message);
     }
   };
 
-  // ==========================================
-  // RENDER UI
-  // ==========================================
   return (
     <div className="manager-container p-3">
       {/* HEADER & TOOLBAR */}
@@ -277,7 +320,7 @@ const MovieManager = () => {
                   <td className="fw-bold text-muted">{index + 1}</td>
                   <td>
                     <img
-                      src={movie.poster_url || "https://placehold.co/50x75"}
+                      src={`http://localhost:3000${movie.poster_url}`}
                       alt="poster"
                       style={{
                         width: "50px",
@@ -318,18 +361,10 @@ const MovieManager = () => {
                   </td>
                   <td className="text-center">
                     <div className="d-flex justify-content-center gap-2">
-                      <Button
-                        variant="outline-dark"
-                        size="sm"
-                        className="action-btn"
-                      >
+                      <Button variant="outline-dark" size="sm">
                         <FaEdit />
                       </Button>
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        className="action-btn"
-                      >
+                      <Button variant="outline-danger" size="sm">
                         <FaTrash />
                       </Button>
                     </div>
@@ -377,44 +412,91 @@ const MovieManager = () => {
 
           <Form>
             <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    Tên phim <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="title"
-                    value={newMovie.title}
-                    onChange={handleInputChange}
-                    placeholder="Nhập tên phim"
-                  />
-                </Form.Group>
+              <Col md={8}>
+                <Row>
+                  <Col md={12}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        Tên phim <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="title"
+                        value={newMovie.title}
+                        onChange={handleInputChange}
+                        placeholder="Nhập tên phim"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        Thời lượng (phút) <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="duration"
+                        value={newMovie.duration}
+                        onChange={handleInputChange}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        Ngày phát hành <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="date"
+                        name="release_date"
+                        value={newMovie.release_date}
+                        onChange={handleInputChange}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
               </Col>
-              <Col md={3}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    Thời lượng (phút) <span className="text-danger">*</span>
+
+              {/* CỘT TẢI ẢNH POSTER */}
+              <Col md={4}>
+                <Form.Group className="mb-3 text-center">
+                  <Form.Label className="d-block fw-bold">
+                    Poster Phim <span className="text-danger">*</span>
                   </Form.Label>
+
+                  {/* Khu vực preview ảnh */}
+                  <div
+                    className="poster-preview-box border rounded mb-2 d-flex align-items-center justify-content-center bg-light"
+                    style={{
+                      height: "200px",
+                      overflow: "hidden",
+                      position: "relative",
+                    }}
+                  >
+                    {posterPreview ? (
+                      <img
+                        src={posterPreview}
+                        alt="Preview"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <div className="text-muted text-center">
+                        <FaImage size={40} className="mb-2" />
+                        <p className="small m-0">Chưa có ảnh</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nút upload file */}
                   <Form.Control
-                    type="number"
-                    name="duration"
-                    value={newMovie.duration}
-                    onChange={handleInputChange}
-                    placeholder="VD: 120"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    Ngày phát hành <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="release_date"
-                    value={newMovie.release_date}
-                    onChange={handleInputChange}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    size="sm"
                   />
                 </Form.Group>
               </Col>
@@ -422,120 +504,70 @@ const MovieManager = () => {
 
             {/* --- KHU VỰC CHỌN NHIỀU (MULTI-SELECT) --- */}
             <Row>
-              {/* 1. Chọn Thể loại */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Thể loại</Form.Label>
                 <div
-                  className="border p-2 rounded"
+                  className="border p-2 rounded bg-white"
                   style={{ maxHeight: "150px", overflowY: "auto" }}
                 >
-                  {genresList.length > 0 ? (
-                    genresList.map((genre) => (
-                      <Form.Check
-                        key={genre.genre_id || genre.id}
-                        type="checkbox"
-                        label={genre.name}
-                        checked={newMovie.genre_ids.includes(
-                          genre.genre_id || genre.id
-                        )}
-                        onChange={(e) =>
-                          handleMultiSelectChange(
-                            e,
-                            "genre_ids",
-                            genre.genre_id || genre.id
-                          )
-                        }
-                      />
-                    ))
-                  ) : (
-                    <div className="text-muted small">Đang tải...</div>
-                  )}
+                  {genresList.map((g) => (
+                    <Form.Check
+                      key={g.genre_id}
+                      type="checkbox"
+                      label={g.name}
+                      checked={newMovie.genre_ids.includes(g.genre_id)}
+                      onChange={(e) =>
+                        handleMultiSelectChange(e, "genre_ids", g.genre_id)
+                      }
+                    />
+                  ))}
                 </div>
               </Col>
-
-              {/* 2. Chọn Đạo diễn (UPDATE: dùng director_id & fullname) */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Đạo diễn</Form.Label>
                 <div
-                  className="border p-2 rounded"
+                  className="border p-2 rounded bg-white"
                   style={{ maxHeight: "150px", overflowY: "auto" }}
                 >
-                  {directorsList.length > 0 ? (
-                    directorsList.map((d) => (
-                      <Form.Check
-                        key={d.director_id} // ID từ backend
-                        type="checkbox"
-                        label={d.fullname} // Tên từ backend
-                        checked={newMovie.director_ids.includes(d.director_id)}
-                        onChange={(e) =>
-                          handleMultiSelectChange(
-                            e,
-                            "director_ids",
-                            d.director_id
-                          )
-                        }
-                      />
-                    ))
-                  ) : (
-                    <div className="text-muted small">Đang tải...</div>
-                  )}
+                  {directorsList.map((d) => (
+                    <Form.Check
+                      key={d.director_id}
+                      type="checkbox"
+                      label={d.fullname}
+                      checked={newMovie.director_ids.includes(d.director_id)}
+                      onChange={(e) =>
+                        handleMultiSelectChange(
+                          e,
+                          "director_ids",
+                          d.director_id
+                        )
+                      }
+                    />
+                  ))}
                 </div>
               </Col>
-
-              {/* 3. Chọn Diễn viên (UPDATE: dùng actor_id & fullname) */}
               <Col md={4}>
                 <Form.Label className="fw-bold">Chọn Diễn viên</Form.Label>
                 <div
-                  className="border p-2 rounded"
+                  className="border p-2 rounded bg-white"
                   style={{ maxHeight: "150px", overflowY: "auto" }}
                 >
-                  {actorsList.length > 0 ? (
-                    actorsList.map((a) => (
-                      <Form.Check
-                        key={a.actor_id} // ID từ backend
-                        type="checkbox"
-                        label={a.fullname} // Tên từ backend
-                        checked={newMovie.actor_ids.includes(a.actor_id)}
-                        onChange={(e) =>
-                          handleMultiSelectChange(e, "actor_ids", a.actor_id)
-                        }
-                      />
-                    ))
-                  ) : (
-                    <div className="text-muted small">Đang tải...</div>
-                  )}
+                  {actorsList.map((a) => (
+                    <Form.Check
+                      key={a.actor_id}
+                      type="checkbox"
+                      label={a.fullname}
+                      checked={newMovie.actor_ids.includes(a.actor_id)}
+                      onChange={(e) =>
+                        handleMultiSelectChange(e, "actor_ids", a.actor_id)
+                      }
+                    />
+                  ))}
                 </div>
               </Col>
             </Row>
 
-            <Row className="mt-3">
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>URL Poster</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="poster_url"
-                    value={newMovie.poster_url}
-                    onChange={handleInputChange}
-                    placeholder="https://..."
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>External AI ID</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="external_ai_id"
-                    value={newMovie.external_ai_id}
-                    onChange={handleInputChange}
-                    placeholder="ID tham chiếu AI (nếu có)"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-3 mt-3">
               <Form.Label>Mô tả nội dung</Form.Label>
               <Form.Control
                 as="textarea"

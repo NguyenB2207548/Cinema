@@ -165,20 +165,25 @@
 }
 
 .movie-img-wrapper {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background-color: #000; /* nền đen để ảnh nào cũng đẹp */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  display: block; /* Để thẻ Link bao trọn ảnh */
 }
 
 .movie-img {
-  height: 300px;
-  object-fit: cover;
-  transition: transform 0.3s;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* không crop, không làm xấu */
+  transition: transform 0.3s ease;
 }
 
 .movie-card:hover .movie-img {
-  transform: scale(1.05); /* Zoom ảnh nhẹ khi hover */
+  transform: scale(1.05);
 }
-
 .btn-book {
   background-color: #cca340 !important;
   border: none;

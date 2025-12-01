@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Container, Row, Col, Card, Form, Button } from "react-bootstrap";
 import { FaCamera, FaSearch, FaTimes } from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -7,9 +7,9 @@ import "../../assets/css/HomePage.css";
 
 const HomePage = () => {
   const [movies, setMovies] = useState([]);
-  const [genres, setGenres] = useState([]); // Thể loại
-  const [actors, setActors] = useState([]); // Diễn viên
-  const [directors, setDirectors] = useState([]); // Đạo diễn
+  const [genres, setGenres] = useState([]);
+  const [actors, setActors] = useState([]);
+  const [directors, setDirectors] = useState([]);
 
   // State quản lý Filter UI
   const [activeTab, setActiveTab] = useState("");
@@ -22,12 +22,23 @@ const HomePage = () => {
   // State tìm kiếm (Chỉ dùng để hiển thị kết quả từ Header)
   const [searchTerm, setSearchTerm] = useState("");
 
+  // --- STATE MỚI CHO AI SEARCH ---
+  const [semanticQuery, setSemanticQuery] = useState("");
+  const [aiSearchTitle, setAiSearchTitle] = useState("");
+
+  // State lưu ảnh preview để hiển thị lên khung
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const fileInputRef = useRef(null);
+
   const location = useLocation();
   const navigate = useNavigate();
 
   // ==========================================
-  // 1. HÀM GỌI API LẤY PHIM
+  // 1. CÁC HÀM GỌI API
   // ==========================================
+
+  // Hàm cũ: Lấy phim thường
   const fetchMovies = (
     genreId = null,
     actorId = null,
@@ -45,8 +56,81 @@ const HomePage = () => {
       .then((res) => res.json())
       .then((data) => {
         setMovies(data.data || []);
+        setAiSearchTitle("");
       })
       .catch((err) => console.log("Lỗi lấy phim:", err));
+  };
+
+  // --- HÀM MỚI 1: XỬ LÝ TÌM KIẾM BẰNG ẢNH ---
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Tạo URL preview để hiển thị ảnh ngay lập tức
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+
+    // Reset các filter khác
+    handleClearFilterStates(false); // false nghĩa là không xóa preview ảnh
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/cinema/search-image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const data = await response.json();
+      setMovies(data.data || []);
+      setAiSearchTitle("Kết quả tìm kiếm bằng Ảnh");
+    } catch (error) {
+      console.error("Lỗi tìm ảnh:", error);
+      alert("Lỗi server khi tìm ảnh");
+    }
+  };
+
+  // --- HÀM MỚI 2: XỬ LÝ TÌM KIẾM NGỮ NGHĨA ---
+  const handleSemanticSearch = async () => {
+    if (!semanticQuery.trim()) return;
+
+    // Reset các filter khác (bao gồm cả ảnh preview nếu đang có)
+    handleClearFilterStates(true);
+
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/cinema/search-text",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: semanticQuery }),
+        }
+      );
+      const data = await response.json();
+      setMovies(data.data || []);
+      setAiSearchTitle(`Kết quả tìm kiếm ngữ nghĩa: "${semanticQuery}"`);
+    } catch (error) {
+      console.error("Lỗi tìm ngữ nghĩa:", error);
+      alert("Lỗi server khi tìm ngữ nghĩa");
+    }
+  };
+
+  // Hàm phụ: Reset state filter
+  // tham số clearImage: có muốn xóa ảnh preview không?
+  const handleClearFilterStates = (clearImage = true) => {
+    setSelectedGenre(null);
+    setSelectedActor(null);
+    setSelectedDirector(null);
+    setSearchTerm("");
+    setAiSearchTitle("");
+    if (clearImage) {
+      setImagePreview(null);
+      // Reset value của input file để cho phép chọn lại cùng 1 ảnh
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   // ==========================================
@@ -86,103 +170,80 @@ const HomePage = () => {
   }, []);
 
   // ==========================================
-  // 3. BẮT SỰ KIỆN RELOAD (F5) ĐỂ RESET VỀ TRANG CHỦ
+  // 3. XỬ LÝ RELOAD & URL SEARCH
   // ==========================================
   useEffect(() => {
     const handleBeforeUnload = () => {
       sessionStorage.setItem("isReloadingHomePage", "true");
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
 
-    // Kiểm tra xem có phải vừa reload không
     const isReloading = sessionStorage.getItem("isReloadingHomePage");
     if (isReloading === "true") {
       sessionStorage.removeItem("isReloadingHomePage");
-
-      // Reset tất cả state về mặc định
       setSearchTerm("");
-      setSelectedGenre(null);
-      setSelectedActor(null);
-      setSelectedDirector(null);
-
-      // Nếu URL có search param hoặc filter, redirect về trang chủ sạch
+      handleClearFilterStates(true);
+      setSemanticQuery("");
       if (location.search) {
         navigate("/", { replace: true });
       } else {
-        // Nếu đã ở trang chủ sạch rồi thì chỉ cần load phim mặc định
         fetchMovies();
       }
     }
-
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 
-  // ==========================================
-  // 4. LẮNG NGHE URL SEARCH (TỪ HEADER)
-  // ==========================================
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const searchKeyword = params.get("search");
 
     if (searchKeyword) {
-      setSearchTerm(searchKeyword); // Cập nhật để hiển thị title
-
-      // Reset các filter khác khi tìm kiếm
-      setSelectedGenre(null);
-      setSelectedActor(null);
-      setSelectedDirector(null);
-
+      setSearchTerm(searchKeyword);
+      handleClearFilterStates(true);
+      setSemanticQuery("");
       fetchMovies(null, null, null, searchKeyword);
     } else {
-      // Reset searchTerm khi không có param search
       setSearchTerm("");
-
-      // Nếu không có param search, và cũng không có filter nào đang chọn thì load mặc định
-      if (!selectedGenre && !selectedActor && !selectedDirector) {
+      if (
+        !selectedGenre &&
+        !selectedActor &&
+        !selectedDirector &&
+        !aiSearchTitle
+      ) {
         fetchMovies();
       }
     }
   }, [location.search]);
 
   // ==========================================
-  // 5. XỬ LÝ SỰ KIỆN FILTER
+  // 5. XỬ LÝ SỰ KIỆN FILTER CLICK
   // ==========================================
-
   const handleGenreClick = (genre) => {
+    handleClearFilterStates(true);
     setSelectedGenre(genre);
-    setSelectedActor(null);
-    setSelectedDirector(null);
-    setSearchTerm("");
     setActiveTab("");
     fetchMovies(genre.id || genre.genre_id, null, null, null);
   };
 
   const handleActorClick = (actor) => {
+    handleClearFilterStates(true);
     setSelectedActor(actor);
-    setSelectedGenre(null);
-    setSelectedDirector(null);
-    setSearchTerm("");
     setActiveTab("");
     fetchMovies(null, actor.id || actor.actor_id, null, null);
   };
 
   const handleDirectorClick = (director) => {
+    handleClearFilterStates(true);
     setSelectedDirector(director);
-    setSelectedGenre(null);
-    setSelectedActor(null);
-    setSearchTerm("");
     setActiveTab("");
     fetchMovies(null, null, director.id || director.director_id, null);
   };
 
   const handleClearFilter = () => {
-    setSelectedGenre(null);
-    setSelectedActor(null);
-    setSelectedDirector(null);
-    setSearchTerm("");
+    handleClearFilterStates(true);
+    setSemanticQuery("");
     fetchMovies();
   };
 
@@ -239,6 +300,21 @@ const HomePage = () => {
                 onClick={handleClearFilter}
               >
                 {currentFilterName} <FaTimes className="ms-1" />
+              </Button>
+            </div>
+          )}
+
+          {/* Tag đang lọc AI */}
+          {aiSearchTitle && (
+            <div className="ms-4 d-flex align-items-center">
+              <span className="text-white me-2 small">AI Search:</span>
+              <Button
+                variant="warning"
+                size="sm"
+                className="rounded-pill px-3 fw-bold"
+                onClick={handleClearFilter}
+              >
+                Reset <FaTimes className="ms-1" />
               </Button>
             </div>
           )}
@@ -342,23 +418,60 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* --- SEARCH SECTION (ĐÃ BỎ LOGIC TÌM KIẾM, DÀNH CHO AI SAU NÀY) --- */}
+      {/* --- SEARCH SECTION --- */}
       <div className="search-section py-5">
         <Container>
           <Row>
-            {/* Tìm kiếm bằng ảnh */}
+            {/* Tìm kiếm bằng ảnh (CẬP NHẬT GIAO DIỆN PREVIEW) */}
             <Col md={6} className="mb-3 mb-md-0">
-              <div className="search-image-box">
-                <FaCamera size={40} className="search-image-icon mb-3" />
-                <h5 className="fw-bold text-white">Tìm phim bằng ảnh</h5>
-                <p className="text-muted small">
-                  Drag and drop image to upload
-                </p>
-                <input type="file" style={{ display: "none" }} />
+              <div
+                className="search-image-box"
+                onClick={() => fileInputRef.current.click()}
+                style={{
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                {imagePreview ? (
+                  // Nếu có ảnh -> Hiển thị ảnh đó full khung
+                  <div className="w-100 h-100 d-flex flex-column justify-content-center align-items-center">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "180px",
+                        objectFit: "contain",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <div className="text-warning small mt-1">
+                      Click để đổi ảnh khác
+                    </div>
+                  </div>
+                ) : (
+                  // Nếu chưa có ảnh -> Hiển thị giao diện mặc định
+                  <>
+                    <FaCamera size={40} className="search-image-icon mb-3" />
+                    <h5 className="fw-bold text-white">Tìm phim bằng ảnh</h5>
+                    <p className="text-muted small">
+                      Drag and drop image to upload
+                    </p>
+                  </>
+                )}
+
+                <input
+                  type="file"
+                  style={{ display: "none" }}
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
               </div>
             </Col>
 
-            {/* Tìm kiếm ngữ nghĩa (AI Placeholder) */}
+            {/* Tìm kiếm ngữ nghĩa */}
             <Col md={6}>
               <div className="text-white h-100">
                 <h5 className="mb-2">Tìm phim bằng ngữ nghĩa</h5>
@@ -367,11 +480,19 @@ const HomePage = () => {
                     as="textarea"
                     placeholder="Nhập mô tả nội dung phim bạn muốn tìm..."
                     className="semantic-input"
-                    // Đã bỏ value, onChange, onKeyDown để không kích hoạt tìm kiếm thường
+                    value={semanticQuery}
+                    onChange={(e) => setSemanticQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSemanticSearch();
+                      }
+                    }}
                   />
                   <FaSearch
                     className="semantic-search-icon"
-                    // Đã bỏ onClick
+                    onClick={handleSemanticSearch}
+                    style={{ cursor: "pointer" }}
                   />
                 </div>
               </div>
@@ -383,7 +504,9 @@ const HomePage = () => {
       {/* --- LIST MOVIES --- */}
       <Container className="py-5">
         <h3 className="movie-title-section">
-          {selectedGenre
+          {aiSearchTitle
+            ? aiSearchTitle
+            : selectedGenre
             ? `Thể loại: ${selectedGenre.name}`
             : selectedActor
             ? `Diễn viên: ${selectedActor.fullname}`
@@ -397,7 +520,7 @@ const HomePage = () => {
         <Row>
           {movies.length > 0 ? (
             movies.map((movie) => (
-              <Col xs={6} md={4} lg={3} className="mb-4" key={movie.movie_id}>
+              <Col md={2} className="mb-4" key={movie.movie_id}>
                 <Card className="movie-card h-100 border-0 shadow-sm">
                   <Link
                     to={`/detail/${movie.movie_id}`}
@@ -405,7 +528,7 @@ const HomePage = () => {
                   >
                     <Card.Img
                       variant="top"
-                      src={movie.poster_url || "https://placehold.co/200x300"}
+                      src={`http://localhost:3000${movie.poster_url}`}
                       className="movie-img"
                       alt={movie.title}
                     />

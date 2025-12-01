@@ -278,7 +278,7 @@ const ShowTimeManager = () => {
                   <td>
                     <div className="d-flex align-items-center">
                       <img
-                        src={item.poster_url || "https://placehold.co/40x60"}
+                        src={`http://localhost:3000${item.poster_url}`}
                         alt=""
                         style={{
                           width: "40px",

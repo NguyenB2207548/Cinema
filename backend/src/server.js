@@ -20,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(cors());
+app.use("/uploads", express.static("public/uploads"));
 
 app.get("/", (req, res) => {
   res.send("Movie Backend Project Running!");

@@ -57,10 +57,7 @@ const MovieDetail = () => {
           {/* Cột trái: Poster */}
           <Col md={5} lg={4} className="mb-4 mb-md-0">
             <img
-              src={
-                movie.poster_url ||
-                "https://via.placeholder.com/400x600?text=No+Poster"
-              }
+              src={`http://localhost:3000${movie.poster_url}`}
               alt={movie.title}
               className="movie-poster"
             />
