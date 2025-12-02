@@ -13,11 +13,9 @@ import { FaSearch, FaPlus, FaEdit, FaTrash, FaVideo } from "react-icons/fa";
 import "../css/Manager.css";
 
 const DirectorManager = () => {
-  // --- STATE DỮ LIỆU ---
   const [directors, setDirectors] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- STATE PHÂN TRANG & TÌM KIẾM ---
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -26,20 +24,16 @@ const DirectorManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [query, setQuery] = useState("");
 
-  // --- STATE MODAL ---
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
+  const [editingDirectorId, setEditingDirectorId] = useState(null);
 
-  // State form: Bỏ birth_date
   const [newDirector, setNewDirector] = useState({
     fullname: "",
     nationality: "",
   });
 
-  // ==========================================
-  // 1. FETCH DATA (GET)
-  // ==========================================
   const fetchDirectors = useCallback(async () => {
     setLoading(true);
     try {
@@ -77,9 +71,6 @@ const DirectorManager = () => {
     fetchDirectors();
   }, [fetchDirectors]);
 
-  // ==========================================
-  // 2. HANDLERS
-  // ==========================================
   const handleSearchEnter = (e) => {
     if (e.key === "Enter") {
       setQuery(searchTerm);
@@ -89,11 +80,15 @@ const DirectorManager = () => {
 
   const handlePageChange = (page) => setCurrentPage(page);
 
-  // --- CREATE DIRECTOR ---
-  const handleShowModal = () => {
-    setNewDirector({ fullname: "", nationality: "" }); // Reset form
+  const resetModalState = () => {
+    setNewDirector({ fullname: "", nationality: "" });
+    setEditingDirectorId(null);
     setModalError("");
     setModalSuccess("");
+  };
+
+  const handleShowModal = () => {
+    resetModalState();
     setShowModal(true);
   };
 
@@ -104,7 +99,18 @@ const DirectorManager = () => {
     setNewDirector({ ...newDirector, [name]: value });
   };
 
-  const handleCreateDirector = async () => {
+  const handleEditDirector = (director) => {
+    setEditingDirectorId(director.director_id);
+    setNewDirector({
+      fullname: director.fullname,
+      nationality: director.nationality || "",
+    });
+    setModalError("");
+    setModalSuccess("");
+    setShowModal(true);
+  };
+
+  const handleSaveDirector = async () => {
     setModalError("");
     setModalSuccess("");
 
@@ -113,10 +119,16 @@ const DirectorManager = () => {
       return;
     }
 
+    const isEdit = !!editingDirectorId;
+    const url = isEdit
+      ? `http://localhost:3000/api/director/update/${editingDirectorId}`
+      : "http://localhost:3000/api/director/add";
+    const method = isEdit ? "PUT" : "POST";
+
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3000/api/director/add", {
-        method: "POST",
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -126,9 +138,14 @@ const DirectorManager = () => {
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.message || "Tạo thất bại");
+      if (!response.ok)
+        throw new Error(
+          data.message || (isEdit ? "Cập nhật thất bại" : "Tạo thất bại")
+        );
 
-      setModalSuccess("Thêm đạo diễn thành công!");
+      setModalSuccess(
+        isEdit ? "Cập nhật đạo diễn thành công!" : "Thêm đạo diễn thành công!"
+      );
       setTimeout(() => {
         handleCloseModal();
         fetchDirectors();
@@ -138,12 +155,42 @@ const DirectorManager = () => {
     }
   };
 
-  // ==========================================
-  // RENDER
-  // ==========================================
+  const handleDeleteDirector = async (id) => {
+    if (
+      window.confirm(
+        "Bạn có chắc chắn muốn xóa đạo diễn này không? Thao tác này có thể thất bại nếu đạo diễn đang tham gia phim."
+      )
+    ) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `http://localhost:3000/api/director/delete/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Xóa đạo diễn thất bại. Có thể đạo diễn này đang được sử dụng."
+          );
+        }
+
+        alert("Xóa đạo diễn thành công!");
+        fetchDirectors();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   return (
     <div className="manager-container p-3">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold m-0">Quản lý đạo diễn</h3>
@@ -172,7 +219,6 @@ const DirectorManager = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
         <Table hover className="manager-table align-middle">
           <thead className="bg-light">
@@ -199,7 +245,9 @@ const DirectorManager = () => {
             ) : (
               directors.map((director, index) => (
                 <tr key={director.director_id}>
-                  <td className="fw-bold text-muted">{index + 1}</td>
+                  <td className="fw-bold text-muted">
+                    {index + 1 + (currentPage - 1) * itemsPerPage}
+                  </td>
                   <td>
                     <div className="d-flex align-items-center">
                       <FaVideo className="text-secondary me-2" />
@@ -217,6 +265,7 @@ const DirectorManager = () => {
                         variant="outline-dark"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleEditDirector(director)}
                       >
                         <FaEdit />
                       </Button>
@@ -224,6 +273,9 @@ const DirectorManager = () => {
                         variant="outline-danger"
                         size="sm"
                         className="action-btn"
+                        onClick={() =>
+                          handleDeleteDirector(director.director_id)
+                        }
                       >
                         <FaTrash />
                       </Button>
@@ -235,7 +287,6 @@ const DirectorManager = () => {
           </tbody>
         </Table>
 
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="d-flex justify-content-center mt-4">
             <Pagination>
@@ -261,10 +312,11 @@ const DirectorManager = () => {
         )}
       </div>
 
-      {/* MODAL */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">Thêm đạo diễn mới</Modal.Title>
+          <Modal.Title className="fw-bold">
+            {editingDirectorId ? "Chỉnh sửa đạo diễn" : "Thêm đạo diễn mới"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {modalError && <Alert variant="danger">{modalError}</Alert>}
@@ -303,10 +355,10 @@ const DirectorManager = () => {
           </Button>
           <Button
             variant="dark"
-            onClick={handleCreateDirector}
+            onClick={handleSaveDirector}
             style={{ backgroundColor: "#1a2236", border: "none" }}
           >
-            Lưu lại
+            {editingDirectorId ? "Lưu thay đổi" : "Lưu lại"}
           </Button>
         </Modal.Footer>
       </Modal>

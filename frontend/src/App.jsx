@@ -20,7 +20,7 @@ import DirectorManager from "./admin/component/DirectorManager.jsx";
 import MovieDetail from "./user/page/MovieDetail.jsx";
 import BookingPage from "./user/page/Booking.jsx";
 import HistoryBooking from "./user/page/HistoryBooking.jsx";
-
+import Profile from "./user/page/Profile.jsx";
 const UserLayout = () => {
   return (
     <>
@@ -41,6 +41,7 @@ function App() {
           <Route path="/detail/:id" element={<MovieDetail />} />
           <Route path="/booking/:id" element={<BookingPage />} />
           <Route path="/booking/history" element={<HistoryBooking />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         <Route path="/admin" element={<AdminLayout />}>

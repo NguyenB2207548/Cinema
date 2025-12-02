@@ -16,7 +16,13 @@ router.post(
 );
 
 router.get("/filter", verifyToken, cinemaController.filterMovies);
-router.put("/update/:id", verifyToken, isAdmin, cinemaController.updateMovie);
+router.put(
+  "/update/:id",
+  upload.single("poster"),
+  verifyToken,
+  isAdmin,
+  cinemaController.updateMovie
+);
 
 router.delete(
   "/delete/:id",
@@ -24,7 +30,6 @@ router.delete(
   isAdmin,
   cinemaController.deleteMovie
 );
-router.put("/restore/:id", verifyToken, isAdmin, cinemaController.restoreMovie);
 
 router.post(
   "/search-image",

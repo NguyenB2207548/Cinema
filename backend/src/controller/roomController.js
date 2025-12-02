@@ -95,3 +95,149 @@ exports.addCinemaRoomAndSeats = async (req, res) => {
     });
   }
 };
+
+exports.updateCinemaRoom = async (req, res) => {
+  const { id } = req.params;
+  const { room_name, capacity, description } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu room_id." });
+  }
+
+  if (!room_name || !capacity || capacity <= 0) {
+    return res.status(400).json({
+      message: "Tên phòng và sức chứa hợp lệ là bắt buộc.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra phòng có tồn tại không
+    const [check] = await connection.execute(
+      "SELECT capacity FROM cinema_room WHERE room_id = ?",
+      [id]
+    );
+    if (check.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ message: "Không tìm thấy phòng để sửa." });
+    }
+
+    // Cảnh báo: Nếu sức chứa mới khác sức chứa cũ, đây là thay đổi lớn.
+    // Trong môi trường thực tế, nếu capacity thay đổi, bạn cần xóa ghế cũ và generate ghế mới
+    // (Đây là một logic phức tạp, trong ví dụ này tôi chỉ cho phép cập nhật metadata và tên)
+    if (check[0].capacity !== parseInt(capacity)) {
+      // Trường hợp phức tạp: Xử lý thay đổi ghế
+      // Để đơn giản, ta sẽ chỉ cho phép sửa nếu capacity không thay đổi.
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({
+        message:
+          "Không thể thay đổi sức chứa phòng sau khi tạo. Vui lòng tạo phòng mới.",
+      });
+    }
+
+    // 2. Cập nhật thông tin phòng
+    const updateQuery = `
+            UPDATE cinema_room 
+            SET room_name = ?, 
+                capacity = ?, 
+                description = ? 
+            WHERE room_id = ?
+        `;
+
+    await connection.execute(updateQuery, [
+      room_name,
+      capacity,
+      description || null,
+      id,
+    ]);
+
+    await connection.commit();
+    connection.release();
+
+    return res.status(200).json({
+      message: "Cập nhật thông tin phòng thành công.",
+      roomId: id,
+    });
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
+    console.error("Lỗi khi cập nhật phòng:", error);
+    return res.status(500).json({
+      message: "Lỗi máy chủ nội bộ khi cập nhật phòng.",
+    });
+  }
+};
+
+exports.deleteCinemaRoom = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu room_id." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra phòng có tồn tại không
+    const [check] = await connection.execute(
+      "SELECT room_id FROM cinema_room WHERE room_id = ?",
+      [id]
+    );
+    if (check.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ message: "Không tìm thấy phòng để xóa." });
+    }
+
+    // 2. Xóa các ghế liên quan trước
+    // (Giả sử Foreign Key trong bảng `seat` có CASCADE, nếu không có, lệnh DELETE này là cần thiết)
+    await connection.execute("DELETE FROM seat WHERE room_id = ?", [id]);
+
+    // 3. Xóa chính phòng chiếu
+    const [result] = await connection.execute(
+      "DELETE FROM cinema_room WHERE room_id = ?",
+      [id]
+    );
+
+    await connection.commit();
+    connection.release();
+
+    return res.status(200).json({
+      message: "Xóa phòng và tất cả ghế liên quan thành công.",
+      roomId: id,
+      affectedRows: result.affectedRows,
+    });
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
+
+    console.error("Lỗi khi xóa phòng:", error);
+
+    // Xử lý lỗi khóa ngoại (Foreign Key Constraint Violation)
+    if (
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      error.code === "ER_ROW_IS_REFERENCED"
+    ) {
+      return res.status(409).json({
+        message:
+          "Không thể xóa phòng này vì đang có các suất chiếu (showtimes) liên quan. Vui lòng xóa lịch chiếu trước.",
+        error_code: error.code,
+      });
+    }
+
+    return res.status(500).json({
+      message: "Lỗi máy chủ nội bộ khi xóa phòng.",
+    });
+  }
+};

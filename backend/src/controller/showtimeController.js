@@ -161,3 +161,53 @@ exports.getAllShowtimes = async (req, res) => {
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };
+
+// DELETE
+exports.deleteShowtime = async (req, res) => {
+  try {
+    const { id } = req.params; // Lấy show_time_id từ URL parameter
+
+    if (!id) {
+      return res.status(400).json({
+        message: "Thiếu show_time_id để xóa",
+      });
+    }
+
+    // 1. Thực hiện truy vấn xóa
+    const deleteQuery = `
+            DELETE FROM show_time
+            WHERE show_time_id = ?
+        `;
+
+    const [result] = await db.execute(deleteQuery, [id]);
+
+    // 2. Kiểm tra kết quả
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Không tìm thấy suất chiếu cần xóa",
+        show_time_id: id,
+      });
+    }
+
+    // 3. Trả về thành công
+    return res.status(200).json({
+      message: "Xóa suất chiếu thành công",
+      show_time_id: id,
+    });
+  } catch (error) {
+    console.error("Lỗi xóa suất chiếu:", error);
+
+    // Kiểm tra lỗi ràng buộc (Foreign Key Constraint)
+    // Nếu có vé đã đặt cho suất chiếu này, SQL có thể báo lỗi
+    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(409).json({
+        message: "Không thể xóa suất chiếu này vì đã có vé được đặt liên quan.",
+        error_code: error.code,
+      });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Lỗi Server", error: error.message });
+  }
+};

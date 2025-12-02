@@ -150,9 +150,7 @@ const MyTickets = () => {
                     {/* Cột trái: Poster */}
                     <Col md={3} sm={4}>
                       <img
-                        src={
-                          ticket.poster_url || "https://placehold.co/300x450"
-                        }
+                        src={`http://localhost:3000${ticket.poster_url}`}
                         alt={ticket.movie_title}
                         className="ticket-poster"
                       />

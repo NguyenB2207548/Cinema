@@ -93,7 +93,6 @@ exports.updateActor = async (req, res) => {
 
   try {
     // 2. Thực hiện lệnh UPDATE
-    // Sử dụng logic: Nếu nationality không gửi lên (undefined) -> lưu là NULL
     const query = `
             UPDATE actor 
             SET fullname = ?, nationality = ? 
@@ -123,6 +122,43 @@ exports.updateActor = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi cập nhật diễn viên:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+exports.deleteActor = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu ID diễn viên" });
+  }
+
+  try {
+    const query = "DELETE FROM actor WHERE actor_id = ?";
+    const [result] = await db.execute(query, [id]);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy diễn viên để xóa" });
+    }
+
+    return res.status(200).json({
+      message: "Xóa diễn viên thành công",
+      actor_id: id,
+    });
+  } catch (error) {
+    if (
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      error.code === "ER_ROW_IS_REFERENCED"
+    ) {
+      return res.status(409).json({
+        message:
+          "Không thể xóa diễn viên này vì họ đang tham gia vào một bộ phim.",
+      });
+    }
+
+    console.error("Lỗi xóa diễn viên:", error);
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };

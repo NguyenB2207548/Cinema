@@ -6,5 +6,6 @@ const { verifyToken, isAdmin } = require("../middleware/auth.js");
 router.get("/", genreController.getAllGenres);
 router.post("/add", verifyToken, isAdmin, genreController.createGenre);
 router.put("/update/:id", verifyToken, isAdmin, genreController.updateGenre);
+router.delete("/delete/:id", verifyToken, isAdmin, genreController.deleteGenre);
 
 module.exports = router;

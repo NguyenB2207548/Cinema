@@ -82,7 +82,45 @@ exports.createGenre = async (req, res) => {
   }
 };
 
-// UPDATE GENRE
+// DELETE
+exports.deleteGenre = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu ID thể loại" });
+  }
+
+  try {
+    const query = "DELETE FROM genre WHERE genre_id = ?";
+    const [result] = await db.execute(query, [id]);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy thể loại này để xóa" });
+    }
+
+    return res.status(200).json({
+      message: "Xóa thể loại thành công",
+      genre_id: id,
+    });
+  } catch (error) {
+    if (
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      error.code === "ER_ROW_IS_REFERENCED"
+    ) {
+      return res.status(409).json({
+        message:
+          "Không thể xóa thể loại này vì nó đang được sử dụng bởi một bộ phim.",
+      });
+    }
+
+    console.error("Lỗi xóa thể loại:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+// UPDATE
 exports.updateGenre = async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;

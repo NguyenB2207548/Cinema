@@ -13,11 +13,9 @@ import { FaSearch, FaPlus, FaEdit, FaTrash, FaUserTie } from "react-icons/fa";
 import "../css/Manager.css";
 
 const ActorManager = () => {
-  // --- STATE DỮ LIỆU ---
   const [actors, setActors] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- STATE PHÂN TRANG & TÌM KIẾM ---
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -26,20 +24,16 @@ const ActorManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [query, setQuery] = useState("");
 
-  // --- STATE MODAL ---
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
+  const [editingActorId, setEditingActorId] = useState(null);
 
-  // Cập nhật state: Bỏ trường birth_date
   const [newActor, setNewActor] = useState({
     fullname: "",
     nationality: "",
   });
 
-  // ==========================================
-  // 1. FETCH DATA
-  // ==========================================
   const fetchActors = useCallback(async () => {
     setLoading(true);
     try {
@@ -77,9 +71,6 @@ const ActorManager = () => {
     fetchActors();
   }, [fetchActors]);
 
-  // ==========================================
-  // 2. HANDLERS
-  // ==========================================
   const handleSearchEnter = (e) => {
     if (e.key === "Enter") {
       setQuery(searchTerm);
@@ -89,11 +80,15 @@ const ActorManager = () => {
 
   const handlePageChange = (page) => setCurrentPage(page);
 
-  // --- CREATE ACTOR ---
-  const handleShowModal = () => {
-    setNewActor({ fullname: "", nationality: "" }); // Reset form không có ngày sinh
+  const resetModalState = () => {
+    setNewActor({ fullname: "", nationality: "" });
+    setEditingActorId(null);
     setModalError("");
     setModalSuccess("");
+  };
+
+  const handleShowModal = () => {
+    resetModalState();
     setShowModal(true);
   };
 
@@ -104,7 +99,18 @@ const ActorManager = () => {
     setNewActor({ ...newActor, [name]: value });
   };
 
-  const handleCreateActor = async () => {
+  const handleEditActor = (actor) => {
+    setEditingActorId(actor.actor_id);
+    setNewActor({
+      fullname: actor.fullname,
+      nationality: actor.nationality || "",
+    });
+    setModalError("");
+    setModalSuccess("");
+    setShowModal(true);
+  };
+
+  const handleSaveActor = async () => {
     setModalError("");
     setModalSuccess("");
 
@@ -113,10 +119,16 @@ const ActorManager = () => {
       return;
     }
 
+    const isEdit = !!editingActorId;
+    const url = isEdit
+      ? `http://localhost:3000/api/actor/update/${editingActorId}`
+      : "http://localhost:3000/api/actor/add";
+    const method = isEdit ? "PUT" : "POST";
+
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3000/api/actor/add", {
-        method: "POST",
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -126,9 +138,14 @@ const ActorManager = () => {
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.message || "Tạo thất bại");
+      if (!response.ok)
+        throw new Error(
+          data.message || (isEdit ? "Cập nhật thất bại" : "Tạo thất bại")
+        );
 
-      setModalSuccess("Thêm diễn viên thành công!");
+      setModalSuccess(
+        isEdit ? "Cập nhật diễn viên thành công!" : "Thêm diễn viên thành công!"
+      );
       setTimeout(() => {
         handleCloseModal();
         fetchActors();
@@ -138,12 +155,38 @@ const ActorManager = () => {
     }
   };
 
-  // ==========================================
-  // RENDER
-  // ==========================================
+  const handleDeleteActor = async (id) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa diễn viên này không?")) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `http://localhost:3000/api/actor/delete/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Xóa diễn viên thất bại. Có thể diễn viên này đang được sử dụng."
+          );
+        }
+
+        alert("Xóa diễn viên thành công!");
+        fetchActors();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   return (
     <div className="manager-container p-3">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold m-0">Quản lý diễn viên</h3>
@@ -172,7 +215,6 @@ const ActorManager = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
         <Table hover className="manager-table align-middle">
           <thead className="bg-light">
@@ -199,7 +241,9 @@ const ActorManager = () => {
             ) : (
               actors.map((actor, index) => (
                 <tr key={actor.actor_id}>
-                  <td className="fw-bold text-muted">{index + 1}</td>
+                  <td className="fw-bold text-muted">
+                    {index + 1 + (currentPage - 1) * itemsPerPage}
+                  </td>
                   <td>
                     <div className="d-flex align-items-center">
                       <FaUserTie className="text-secondary me-2" />
@@ -215,6 +259,7 @@ const ActorManager = () => {
                         variant="outline-dark"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleEditActor(actor)}
                       >
                         <FaEdit />
                       </Button>
@@ -222,6 +267,7 @@ const ActorManager = () => {
                         variant="outline-danger"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleDeleteActor(actor.actor_id)}
                       >
                         <FaTrash />
                       </Button>
@@ -233,7 +279,6 @@ const ActorManager = () => {
           </tbody>
         </Table>
 
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="d-flex justify-content-center mt-4">
             <Pagination>
@@ -259,10 +304,11 @@ const ActorManager = () => {
         )}
       </div>
 
-      {/* MODAL */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">Thêm diễn viên mới</Modal.Title>
+          <Modal.Title className="fw-bold">
+            {editingActorId ? "Chỉnh sửa diễn viên" : "Thêm diễn viên mới"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {modalError && <Alert variant="danger">{modalError}</Alert>}
@@ -301,10 +347,10 @@ const ActorManager = () => {
           </Button>
           <Button
             variant="dark"
-            onClick={handleCreateActor}
+            onClick={handleSaveActor}
             style={{ backgroundColor: "#1a2236", border: "none" }}
           >
-            Lưu lại
+            {editingActorId ? "Lưu thay đổi" : "Lưu lại"}
           </Button>
         </Modal.Footer>
       </Modal>

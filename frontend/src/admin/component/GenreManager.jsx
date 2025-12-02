@@ -4,28 +4,23 @@ import { FaSearch, FaPlus, FaEdit, FaTrash, FaTag } from "react-icons/fa";
 import "../css/Manager.css";
 
 const GenreManager = () => {
-  // --- STATE ---
   const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Pagination & Search
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 5;
 
-  const [searchTerm, setSearchTerm] = useState(""); // Input value
-  const [query, setQuery] = useState(""); // API query value
+  const [searchTerm, setSearchTerm] = useState("");
+  const [query, setQuery] = useState("");
 
-  // Modal
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
   const [newGenreName, setNewGenreName] = useState("");
+  const [editingGenreId, setEditingGenreId] = useState(null);
 
-  // ==========================================
-  // 1. FETCH DATA
-  // ==========================================
   const fetchGenres = useCallback(async () => {
     setLoading(true);
     try {
@@ -36,8 +31,6 @@ const GenreManager = () => {
         search: query,
       });
 
-      // Giả định endpoint là /api/genres (hoặc /api/data/genres tùy bạn cấu hình)
-      // Nhưng để quản lý (có thêm/sửa/xóa) thì nên dùng route riêng /api/genres
       const response = await fetch(
         `http://localhost:3000/api/genre?${params}`,
         {
@@ -52,7 +45,6 @@ const GenreManager = () => {
 
       const result = await response.json();
 
-      // Backend trả về { data: [], meta: {...} }
       setGenres(result.data || []);
       setTotalPages(result.meta?.total_pages || 1);
       setTotalItems(result.meta?.total_items || 0);
@@ -67,9 +59,6 @@ const GenreManager = () => {
     fetchGenres();
   }, [fetchGenres]);
 
-  // ==========================================
-  // 2. HANDLERS
-  // ==========================================
   const handleSearchEnter = (e) => {
     if (e.key === "Enter") {
       setQuery(searchTerm);
@@ -79,17 +68,29 @@ const GenreManager = () => {
 
   const handlePageChange = (page) => setCurrentPage(page);
 
-  // --- CREATE GENRE ---
-  const handleShowModal = () => {
+  const resetModalState = () => {
     setNewGenreName("");
+    setEditingGenreId(null);
     setModalError("");
     setModalSuccess("");
+  };
+
+  const handleShowModal = () => {
+    resetModalState();
     setShowModal(true);
   };
 
   const handleCloseModal = () => setShowModal(false);
 
-  const handleCreateGenre = async () => {
+  const handleEdit = (genre) => {
+    setEditingGenreId(genre.genre_id);
+    setNewGenreName(genre.name);
+    setModalError("");
+    setModalSuccess("");
+    setShowModal(true);
+  };
+
+  const handleSaveGenre = async () => {
     setModalError("");
     setModalSuccess("");
 
@@ -98,10 +99,16 @@ const GenreManager = () => {
       return;
     }
 
+    const isEdit = !!editingGenreId;
+    const url = isEdit
+      ? `http://localhost:3000/api/genre/update/${editingGenreId}`
+      : "http://localhost:3000/api/genre/add";
+    const method = isEdit ? "PUT" : "POST";
+
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3000/api/genre/add", {
-        method: "POST",
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -111,9 +118,15 @@ const GenreManager = () => {
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.message || "Tạo thất bại");
+      if (!response.ok)
+        throw new Error(
+          data.message || (isEdit ? "Cập nhật thất bại" : "Tạo thất bại")
+        );
 
-      setModalSuccess("Thêm thể loại thành công!");
+      setModalSuccess(
+        isEdit ? "Cập nhật thể loại thành công!" : "Thêm thể loại thành công!"
+      );
+
       setTimeout(() => {
         handleCloseModal();
         fetchGenres();
@@ -123,12 +136,35 @@ const GenreManager = () => {
     }
   };
 
-  // ==========================================
-  // RENDER
-  // ==========================================
+  const handleDeleteGenre = async (id) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa thể loại này không?")) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `http://localhost:3000/api/genre/delete/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Xóa thể loại thất bại.");
+        }
+
+        alert("Xóa thể loại thành công!");
+        fetchGenres();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   return (
     <div className="manager-container p-3">
-      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold m-0">Quản lý thể loại</h3>
@@ -157,7 +193,6 @@ const GenreManager = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
         <Table hover className="manager-table align-middle">
           <thead className="bg-light">
@@ -183,7 +218,9 @@ const GenreManager = () => {
             ) : (
               genres.map((genre, index) => (
                 <tr key={genre.genre_id}>
-                  <td className="fw-bold text-muted">{index + 1}</td>
+                  <td className="fw-bold text-muted">
+                    {index + 1 + (currentPage - 1) * itemsPerPage}
+                  </td>
                   <td>
                     <div className="d-flex align-items-center">
                       <FaTag className="text-secondary me-2" />
@@ -196,6 +233,7 @@ const GenreManager = () => {
                         variant="outline-dark"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleEdit(genre)}
                       >
                         <FaEdit />
                       </Button>
@@ -203,6 +241,7 @@ const GenreManager = () => {
                         variant="outline-danger"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleDeleteGenre(genre.genre_id)}
                       >
                         <FaTrash />
                       </Button>
@@ -214,7 +253,6 @@ const GenreManager = () => {
           </tbody>
         </Table>
 
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="d-flex justify-content-center mt-4">
             <Pagination>
@@ -240,10 +278,11 @@ const GenreManager = () => {
         )}
       </div>
 
-      {/* MODAL */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">Thêm thể loại mới</Modal.Title>
+          <Modal.Title className="fw-bold">
+            {editingGenreId ? "Chỉnh sửa thể loại" : "Thêm thể loại mới"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {modalError && <Alert variant="danger">{modalError}</Alert>}
@@ -267,10 +306,10 @@ const GenreManager = () => {
           </Button>
           <Button
             variant="dark"
-            onClick={handleCreateGenre}
+            onClick={handleSaveGenre}
             style={{ backgroundColor: "#1a2236", border: "none" }}
           >
-            Lưu lại
+            {editingGenreId ? "Lưu thay đổi" : "Lưu lại"}
           </Button>
         </Modal.Footer>
       </Modal>

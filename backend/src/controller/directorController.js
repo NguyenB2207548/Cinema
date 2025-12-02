@@ -79,7 +79,6 @@ exports.updateDirector = async (req, res) => {
   const { id } = req.params;
   const { fullname, nationality } = req.body;
 
-  // 1. Validate dữ liệu đầu vào
   if (!id) {
     return res.status(400).json({ message: "Thiếu ID đạo diễn" });
   }
@@ -90,7 +89,6 @@ exports.updateDirector = async (req, res) => {
   }
 
   try {
-    // 2. Thực hiện lệnh UPDATE
     const query = `
             UPDATE director 
             SET fullname = ?, nationality = ? 
@@ -103,7 +101,6 @@ exports.updateDirector = async (req, res) => {
       id,
     ]);
 
-    // 3. Kiểm tra kết quả
     if (result.affectedRows === 0) {
       return res.status(404).json({
         message: "Không tìm thấy đạo diễn (Hoặc đạo diễn này đã bị xóa)",
@@ -120,6 +117,43 @@ exports.updateDirector = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi cập nhật đạo diễn:", error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+exports.deleteDirector = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "Thiếu ID đạo diễn" });
+  }
+
+  try {
+    const query = "DELETE FROM director WHERE director_id = ?";
+    const [result] = await db.execute(query, [id]);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy đạo diễn để xóa" });
+    }
+
+    return res.status(200).json({
+      message: "Xóa đạo diễn thành công",
+      director_id: id,
+    });
+  } catch (error) {
+    if (
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      error.code === "ER_ROW_IS_REFERENCED"
+    ) {
+      return res.status(409).json({
+        message:
+          "Không thể xóa đạo diễn này vì họ đang tham gia vào một bộ phim.",
+      });
+    }
+
+    console.error("Lỗi xóa đạo diễn:", error);
     return res.status(500).json({ message: "Lỗi Server" });
   }
 };

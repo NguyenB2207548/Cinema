@@ -383,21 +383,29 @@ exports.filterMovies = async (req, res) => {
 };
 
 // UPDATE MOVIE
+// Đảm bảo rằng bạn đã import thư viện db (kết nối cơ sở dữ liệu) và các thư viện cần thiết.
+// const db = require('../config/db');
+
 exports.updateMovie = async (req, res) => {
-  const { id } = req.params; // Lấy movie_id từ URL
+  const { id } = req.params;
+
+  // 1. Dữ liệu text được Multer trích xuất vào req.body
   const {
     title,
     description,
     duration,
     release_date,
-    poster_url,
     external_ai_id,
-    genre_ids, // Mảng ID mới (VD: [1, 3])
-    actor_ids, // Mảng ID mới
-    director_ids, // Mảng ID mới
+    genre_ids,
+    actor_ids,
+    director_ids,
   } = req.body;
 
-  // Validate ID
+  // 2. Lấy thông tin file đã upload (do Multer cung cấp)
+  const newFile = req.file;
+  let new_poster_url = null;
+
+  // Kiểm tra điều kiện bắt buộc
   if (!id) {
     return res.status(400).json({ message: "Thiếu movie_id" });
   }
@@ -407,11 +415,9 @@ exports.updateMovie = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // ---------------------------------------------------------
-    // BƯỚC 1: Kiểm tra phim có tồn tại không
-    // ---------------------------------------------------------
+    // 3. Kiểm tra phim và lấy URL poster cũ (để xóa nếu có file mới)
     const [check] = await connection.execute(
-      "SELECT movie_id FROM movie WHERE movie_id = ?",
+      "SELECT movie_id, poster_url FROM movie WHERE movie_id = ?",
       [id]
     );
     if (check.length === 0) {
@@ -419,13 +425,27 @@ exports.updateMovie = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy phim để sửa" });
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 2: Cập nhật thông tin bảng MOVIE
-    // ---------------------------------------------------------
-    // Chỉ cập nhật các trường có gửi lên. Nếu gửi undefined thì giữ nguyên giá trị cũ
-    // Lưu ý: Logic dưới đây giả định Frontend gửi đầy đủ thông tin cần sửa.
-    // Nếu muốn update từng phần (PATCH), cần viết query động (Dynamic SQL).
+    const current_poster_url = check[0].poster_url;
 
+    // ===============================================
+    // 4. XỬ LÝ FILE MỚI (NẾU CÓ)
+    // ===============================================
+    if (newFile) {
+      // LOGIC XỬ LÝ FILE:
+      // a. Xử lý lưu trữ file (đổi tên, di chuyển file từ temp sang thư mục cố định)
+      // new_poster_url = /uploads/path/to/new_file.jpg (Đường dẫn công khai)
+
+      // Ví dụ đơn giản (thay thế bằng logic Multer thực tế của bạn)
+      if (newFile.filename) {
+        new_poster_url = `/uploads/${newFile.filename}`;
+      }
+
+      // b. Xóa file cũ khỏi server/S3 (nếu current_poster_url tồn tại)
+      // Ví dụ: fs.unlinkSync(path.join(__dirname, '..', current_poster_url));
+      // Cần cẩn thận khi xóa file.
+    }
+
+    // 5. Cập nhật thông tin chính của phim
     const updateQuery = `
             UPDATE movie 
             SET 
@@ -438,29 +458,36 @@ exports.updateMovie = async (req, res) => {
             WHERE movie_id = ?
         `;
 
-    // COALESCE(A, B): Nếu A không null thì lấy A, nếu A null thì lấy B (giữ nguyên cái cũ)
+    // Nếu new_poster_url có giá trị, nó sẽ cập nhật.
+    // Nếu new_poster_url là NULL (không có file mới), COALESCE sẽ giữ lại poster_url cũ trong DB.
     await connection.execute(updateQuery, [
       title ?? null,
       description ?? null,
       duration ?? null,
       release_date ?? null,
-      poster_url ?? null,
+      new_poster_url ?? null, // Giá trị đã được xử lý (new URL hoặc null)
       external_ai_id ?? null,
       id,
     ]);
 
-    // ---------------------------------------------------------
-    // BƯỚC 3: Cập nhật THỂ LOẠI (Nếu có gửi mảng genre_ids)
-    // ---------------------------------------------------------
-    if (Array.isArray(genre_ids)) {
-      // a. Xóa hết liên kết cũ
+    // 6. Xử lý cập nhật Thể loại (Genre)
+    // Lưu ý: Multer có thể chuyển các trường mảng (như genre_ids) thành một chuỗi JSON hoặc một mảng thực sự.
+    // Code này giả định nó là MẢNG ID (dạng string[] nếu là Multer) hoặc đã được Parse:
+    let parsed_genre_ids = Array.isArray(genre_ids)
+      ? genre_ids
+      : typeof genre_ids === "string"
+      ? JSON.parse(genre_ids)
+      : [];
+
+    if (Array.isArray(parsed_genre_ids)) {
+      // Xóa cũ
       await connection.execute("DELETE FROM movie_genre WHERE movie_id = ?", [
         id,
       ]);
 
-      // b. Thêm liên kết mới (nếu mảng không rỗng)
-      if (genre_ids.length > 0) {
-        const genreValues = genre_ids.map((gId) => [id, gId]);
+      // Thêm mới
+      if (parsed_genre_ids.length > 0) {
+        const genreValues = parsed_genre_ids.map((gId) => [id, gId]);
         await connection.query(
           "INSERT INTO movie_genre (movie_id, genre_id) VALUES ?",
           [genreValues]
@@ -468,16 +495,20 @@ exports.updateMovie = async (req, res) => {
       }
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 4: Cập nhật DIỄN VIÊN (Nếu có gửi mảng actor_ids)
-    // ---------------------------------------------------------
-    if (Array.isArray(actor_ids)) {
+    // 7. Xử lý cập nhật Diễn viên (Actor)
+    let parsed_actor_ids = Array.isArray(actor_ids)
+      ? actor_ids
+      : typeof actor_ids === "string"
+      ? JSON.parse(actor_ids)
+      : [];
+
+    if (Array.isArray(parsed_actor_ids)) {
       await connection.execute("DELETE FROM movie_actor WHERE movie_id = ?", [
         id,
       ]);
 
-      if (actor_ids.length > 0) {
-        const actorValues = actor_ids.map((aId) => [id, aId]);
+      if (parsed_actor_ids.length > 0) {
+        const actorValues = parsed_actor_ids.map((aId) => [id, aId]);
         await connection.query(
           "INSERT INTO movie_actor (movie_id, actor_id) VALUES ?",
           [actorValues]
@@ -485,17 +516,20 @@ exports.updateMovie = async (req, res) => {
       }
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 5: Cập nhật ĐẠO DIỄN (Nếu có gửi mảng director_ids)
-    // ---------------------------------------------------------
-    if (Array.isArray(director_ids)) {
+    let parsed_director_ids = Array.isArray(director_ids)
+      ? director_ids
+      : typeof director_ids === "string"
+      ? JSON.parse(director_ids)
+      : [];
+
+    if (Array.isArray(parsed_director_ids)) {
       await connection.execute(
         "DELETE FROM movie_director WHERE movie_id = ?",
         [id]
       );
 
-      if (director_ids.length > 0) {
-        const directorValues = director_ids.map((dId) => [id, dId]);
+      if (parsed_director_ids.length > 0) {
+        const directorValues = parsed_director_ids.map((dId) => [id, dId]);
         await connection.query(
           "INSERT INTO movie_director (movie_id, director_id) VALUES ?",
           [directorValues]
@@ -517,67 +551,50 @@ exports.updateMovie = async (req, res) => {
     connection.release();
   }
 };
-
 // DELETE MOVIE
 exports.deleteMovie = async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
-    return res
-      .status(400)
-      .json({ message: "Vui lòng cung cấp ID phim cần xóa" });
+    return res.status(400).json({ message: "Thiếu ID phim" });
   }
 
-  const connection = await db.getConnection();
-
+  let connection;
   try {
-    // 1. Kiểm tra xem phim có tồn tại và chưa bị xóa không
+    connection = await db.getConnection();
     const [check] = await connection.execute(
-      "SELECT title FROM movie WHERE movie_id = ? AND is_deleted = FALSE",
+      "SELECT movie_id, title FROM movie WHERE movie_id = ?",
       [id]
     );
 
     if (check.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Phim không tồn tại hoặc đã bị xóa trước đó." });
+      connection.release();
+      return res.status(404).json({ message: "Phim không tồn tại" });
     }
 
-    // 2. Thực hiện XÓA MỀM (Soft Delete)
-    // Chỉ cần cập nhật cờ is_deleted thành TRUE (1)
-    const updateQuery = "UPDATE movie SET is_deleted = TRUE WHERE movie_id = ?";
+    await connection.execute("DELETE FROM movie WHERE movie_id = ?", [id]);
 
-    await connection.execute(updateQuery, [id]);
-
-    // (Tuỳ chọn) Bạn có thể muốn hủy các suất chiếu tương lai của phim này
-    // UPDATE show_time SET status = 'Cancelled' WHERE movie_id = ? AND start_time > NOW()
+    connection.release();
 
     return res.status(200).json({
-      message: `Đã xóa phim '${check[0].title}' thành công.`,
+      message: `Đã xóa vĩnh viễn phim "${check[0].title}".`,
+      movie_id: id,
     });
   } catch (error) {
-    console.error("Lỗi xóa mềm phim:", error);
-    return res.status(500).json({ message: "Lỗi Server" });
-  } finally {
-    connection.release();
-  }
-};
+    if (connection) connection.release();
+    console.error("Lỗi xóa phim:", error);
+    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(409).json({
+        message:
+          "Không thể xóa phim này vì đang có Suất chiếu hoặc Vé đã bán. Hãy xóa các dữ liệu liên quan trước.",
+      });
+    }
 
-exports.restoreMovie = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await db.execute("UPDATE movie SET is_deleted = FALSE WHERE movie_id = ?", [
-      id,
-    ]);
-    res.status(200).json({ message: "Khôi phục phim thành công" });
-  } catch (error) {
-    res.status(500).json({ message: "Lỗi server" });
+    return res.status(500).json({ message: "Lỗi Server khi xóa phim" });
   }
 };
 
 // TÌM KIẾM BẰNG AI
-
 exports.searchByImage = async (req, res) => {
   // 1. Check file upload từ React
   if (!req.file)
@@ -654,7 +671,7 @@ exports.searchByText = async (req, res) => {
       "http://localhost:5000/api/search_by_text",
       {
         query: query,
-        top_k: 8, // Lấy top 8 phim
+        top_k: 3, // Lấy top 8 phim
       }
     );
 

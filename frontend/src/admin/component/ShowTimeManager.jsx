@@ -21,24 +21,19 @@ import {
 import "../css/Manager.css";
 
 const ShowTimeManager = () => {
-  // --- STATE DỮ LIỆU CHÍNH ---
   const [showtimes, setShowtimes] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- STATE DỮ LIỆU PHỤ TRỢ (Dropdown) ---
   const [moviesList, setMoviesList] = useState([]);
   const [roomsList, setRoomsList] = useState([]);
 
-  // --- STATE PHÂN TRANG & FILTER ---
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
 
-  // Filter theo ngày (Mặc định rỗng là lấy tất cả)
   const [filterDate, setFilterDate] = useState("");
 
-  // --- STATE MODAL THÊM SUẤT CHIẾU ---
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
@@ -46,28 +41,23 @@ const ShowTimeManager = () => {
   const [newShowtime, setNewShowtime] = useState({
     movie_id: "",
     room_id: "",
-    start_time: "", // YYYY-MM-DDTHH:mm
-    price: 50000, // Giá mặc định
+    start_time: "",
+    price: 50000,
   });
 
-  // ==========================================
-  // 1. LẤY DỮ LIỆU PHỤ TRỢ (Movies & Rooms)
-  // ==========================================
   useEffect(() => {
     const fetchAuxData = async () => {
       try {
-        // Lưu ý: Bạn cần có API lấy danh sách Phòng (ví dụ /api/rooms)
-        // Đối với phim, ta dùng tạm API lấy danh sách phim limit lớn để lấy hết
         const [resMovies, resRooms] = await Promise.all([
           fetch("http://localhost:3000/api/cinema?limit=100"),
-          fetch("http://localhost:3000/api/room"), // Giả định bạn đã có API này
+          fetch("http://localhost:3000/api/room"),
         ]);
 
         const moviesData = await resMovies.json();
         const roomsData = await resRooms.json();
 
         setMoviesList(moviesData.data || []);
-        setRoomsList(roomsData.data || roomsData || []); // Tùy cấu trúc trả về của API Room
+        setRoomsList(roomsData.data || roomsData || []);
       } catch (err) {
         console.error("Lỗi tải danh sách phim/phòng:", err);
       }
@@ -75,15 +65,11 @@ const ShowTimeManager = () => {
     fetchAuxData();
   }, []);
 
-  // ==========================================
-  // 2. LẤY DANH SÁCH SUẤT CHIẾU (GET)
-  // ==========================================
   const fetchShowtimes = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
 
-      // Tạo query params
       const params = new URLSearchParams({
         page: currentPage,
         limit: itemsPerPage,
@@ -108,7 +94,6 @@ const ShowTimeManager = () => {
 
       const result = await response.json();
 
-      // Mapping dữ liệu trả về từ backend
       setShowtimes(result.data);
       setTotalPages(result.meta.total_pages);
       setTotalItems(result.meta.total_items);
@@ -123,11 +108,7 @@ const ShowTimeManager = () => {
     fetchShowtimes();
   }, [fetchShowtimes]);
 
-  // ==========================================
-  // 3. XỬ LÝ THÊM SUẤT CHIẾU (POST)
-  // ==========================================
   const handleShowModal = () => {
-    // Reset form
     setNewShowtime({ movie_id: "", room_id: "", start_time: "", price: 50000 });
     setModalError("");
     setModalSuccess("");
@@ -145,7 +126,6 @@ const ShowTimeManager = () => {
     setModalError("");
     setModalSuccess("");
 
-    // Validate
     if (
       !newShowtime.movie_id ||
       !newShowtime.room_id ||
@@ -170,7 +150,6 @@ const ShowTimeManager = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Hiển thị lỗi conflict hoặc lỗi khác từ backend
         throw new Error(data.message || "Tạo thất bại");
       }
 
@@ -178,14 +157,43 @@ const ShowTimeManager = () => {
 
       setTimeout(() => {
         handleCloseModal();
-        fetchShowtimes(); // Reload danh sách
+        fetchShowtimes();
       }, 1000);
     } catch (error) {
       setModalError(error.message);
     }
   };
 
-  // Format tiền tệ VND
+  // --- XỬ LÝ XÓA LỊCH CHIẾU (DELETE) ---
+  const handleDeleteShowtime = async (id) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa suất chiếu này không?")) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `http://localhost:3000/api/showtime/delete/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(
+            data.message || "Xóa suất chiếu thất bại. Có thể đã có vé được đặt."
+          );
+        }
+
+        alert("Xóa suất chiếu thành công!");
+        fetchShowtimes();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -193,7 +201,6 @@ const ShowTimeManager = () => {
     }).format(amount);
   };
 
-  // Format ngày giờ hiển thị
   const formatDateTime = (isoString) => {
     const date = new Date(isoString);
     return date.toLocaleString("vi-VN", {
@@ -205,12 +212,8 @@ const ShowTimeManager = () => {
     });
   };
 
-  // ==========================================
-  // RENDER UI
-  // ==========================================
   return (
     <div className="manager-container p-3">
-      {/* HEADER & TOOLBAR */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold m-0">Quản lý lịch chiếu</h3>
@@ -218,7 +221,6 @@ const ShowTimeManager = () => {
         </div>
 
         <div className="d-flex gap-2">
-          {/* Filter theo ngày */}
           <div className="search-box">
             <input
               type="date"
@@ -231,7 +233,6 @@ const ShowTimeManager = () => {
             />
           </div>
 
-          {/* Nút thêm mới */}
           <Button
             variant="dark"
             className="btn-add-new"
@@ -242,7 +243,6 @@ const ShowTimeManager = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="table-responsive bg-white rounded shadow-sm p-3">
         <Table hover className="manager-table align-middle">
           <thead className="bg-light">
@@ -274,7 +274,6 @@ const ShowTimeManager = () => {
                 <tr key={item.show_time_id}>
                   <td className="fw-bold text-muted">{index + 1}</td>
 
-                  {/* Thông tin phim */}
                   <td>
                     <div className="d-flex align-items-center">
                       <img
@@ -299,14 +298,12 @@ const ShowTimeManager = () => {
                     </div>
                   </td>
 
-                  {/* Phòng */}
                   <td>
                     <Badge bg="info" text="dark">
                       {item.room_name}
                     </Badge>
                   </td>
 
-                  {/* Thời gian */}
                   <td className="fw-bold text-success">
                     {formatDateTime(item.start_time)}
                   </td>
@@ -317,17 +314,18 @@ const ShowTimeManager = () => {
                     })}
                   </td>
 
-                  {/* Giá vé */}
                   <td className="fw-bold text-danger">
                     {formatCurrency(item.price)}
                   </td>
 
                   <td className="text-center">
                     <div className="d-flex justify-content-center gap-2">
+                      {/* Thêm nút Xóa và gọi hàm handleDeleteShowtime */}
                       <Button
                         variant="outline-danger"
                         size="sm"
                         className="action-btn"
+                        onClick={() => handleDeleteShowtime(item.show_time_id)}
                       >
                         <FaTrash />
                       </Button>
@@ -339,7 +337,6 @@ const ShowTimeManager = () => {
           </tbody>
         </Table>
 
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="d-flex justify-content-center mt-4">
             <Pagination>
@@ -367,7 +364,6 @@ const ShowTimeManager = () => {
         )}
       </div>
 
-      {/* --- MODAL THÊM SUẤT CHIẾU --- */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold">Tạo suất chiếu mới</Modal.Title>
@@ -377,7 +373,6 @@ const ShowTimeManager = () => {
           {modalSuccess && <Alert variant="success">{modalSuccess}</Alert>}
 
           <Form>
-            {/* Chọn Phim */}
             <Form.Group className="mb-3">
               <Form.Label>
                 Chọn Phim <span className="text-danger">*</span>
@@ -396,7 +391,6 @@ const ShowTimeManager = () => {
               </Form.Select>
             </Form.Group>
 
-            {/* Chọn Phòng */}
             <Form.Group className="mb-3">
               <Form.Label>
                 Chọn Phòng <span className="text-danger">*</span>
@@ -408,7 +402,6 @@ const ShowTimeManager = () => {
               >
                 <option value="">-- Chọn phòng chiếu --</option>
                 {roomsList.map((room) => (
-                  // Giả sử object room có room_id và name
                   <option key={room.room_id} value={room.room_id}>
                     {room.room_name}
                   </option>
@@ -416,7 +409,6 @@ const ShowTimeManager = () => {
               </Form.Select>
             </Form.Group>
 
-            {/* Thời gian bắt đầu */}
             <Form.Group className="mb-3">
               <Form.Label>
                 Thời gian bắt đầu <span className="text-danger">*</span>
@@ -433,7 +425,6 @@ const ShowTimeManager = () => {
               </Form.Text>
             </Form.Group>
 
-            {/* Giá vé */}
             <Form.Group className="mb-3">
               <Form.Label>
                 Giá vé (VNĐ) <span className="text-danger">*</span>

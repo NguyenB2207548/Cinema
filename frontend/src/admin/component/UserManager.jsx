@@ -11,8 +11,9 @@ const UserManager = () => {
 
   // --- STATE QUẢN LÝ UI/FILTER ---
   const [searchTerm, setSearchTerm] = useState("");
+  const [query, setQuery] = useState(""); // Thêm state query để search khi nhấn Enter
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5; // Khớp với limit bên backend
+  const itemsPerPage = 5;
   const [loading, setLoading] = useState(false);
 
   // --- STATE QUẢN LÝ MODAL THÊM USER ---
@@ -22,7 +23,7 @@ const UserManager = () => {
     password: "",
     email: "",
     fullName: "",
-    role: "user", // Mặc định là user
+    role: "user",
   });
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
@@ -35,15 +36,14 @@ const UserManager = () => {
     try {
       const token = localStorage.getItem("token");
 
-      // Tạo query params: page, limit, search
       const params = new URLSearchParams({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchTerm,
+        search: query, // Dùng query thay vì searchTerm
       });
 
       const response = await fetch(
-        `http://localhost:3000/api/auth/users?${params}`,
+        `http://localhost:3000/api/auth/users?${params}`, // Đảm bảo endpoint backend đúng
         {
           method: "GET",
           headers: {
@@ -63,8 +63,6 @@ const UserManager = () => {
       }
 
       const result = await response.json();
-
-      // Cập nhật state từ dữ liệu Backend trả về
       setUsers(result.data);
       setTotalPages(result.pagination.totalPages);
       setTotalItems(result.pagination.totalItems);
@@ -73,9 +71,8 @@ const UserManager = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm]); // Khi trang thay đổi hoặc từ khóa tìm kiếm thay đổi (sau khi Enter) thì gọi lại
+  }, [currentPage, query]);
 
-  // Gọi API lần đầu và khi currentPage thay đổi
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -85,8 +82,8 @@ const UserManager = () => {
   // ==========================================
   const handleSearchEnter = (e) => {
     if (e.key === "Enter") {
-      setCurrentPage(1); // Reset về trang 1 khi tìm kiếm mới
-      fetchUsers(); // Gọi API ngay lập tức
+      setQuery(searchTerm); // Cập nhật query khi nhấn Enter
+      setCurrentPage(1);
     }
   };
 
@@ -121,7 +118,6 @@ const UserManager = () => {
     setModalError("");
     setModalSuccess("");
 
-    // Validate cơ bản
     if (!newUser.username || !newUser.password || !newUser.email) {
       setModalError("Vui lòng điền đầy đủ thông tin bắt buộc.");
       return;
@@ -139,7 +135,7 @@ const UserManager = () => {
           username: newUser.username,
           password: newUser.password,
           email: newUser.email,
-          full_name: newUser.fullName, // Map camelCase -> snake_case cho Backend
+          full_name: newUser.fullName,
           role: newUser.role,
         }),
       });
@@ -151,14 +147,45 @@ const UserManager = () => {
       }
 
       setModalSuccess("Tạo người dùng thành công!");
-
-      // Refresh lại danh sách sau 1s và đóng modal
       setTimeout(() => {
         handleCloseModal();
         fetchUsers();
       }, 1000);
     } catch (error) {
       setModalError(error.message);
+    }
+  };
+
+  // ==========================================
+  // 4. HÀM XỬ LÝ XÓA USER (MỚI THÊM)
+  // ==========================================
+  const handleDeleteUser = async (userId, userName) => {
+    if (
+      !window.confirm(`Bạn có chắc chắn muốn xóa người dùng "${userName}"?`)
+    ) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      // Gọi API DELETE: /api/auth/users/:id
+      const response = await fetch(`http://localhost:3000/api/auth/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Xóa thất bại");
+      }
+
+      alert("Xóa người dùng thành công!");
+      fetchUsers(); // Reload danh sách sau khi xóa
+    } catch (error) {
+      alert(error.message);
     }
   };
 
@@ -205,12 +232,12 @@ const UserManager = () => {
         <Table hover className="manager-table align-middle">
           <thead className="bg-light">
             <tr>
-              <th>STT</th>
+              <th>ID</th>
               <th>Họ tên / Username</th>
               <th>Email</th>
               <th>Vai trò</th>
               <th>Ngày tham gia</th>
-              <th>Hành động</th>
+              <th className="text-center">Hành động</th>
             </tr>
           </thead>
           <tbody>
@@ -227,14 +254,14 @@ const UserManager = () => {
                 </td>
               </tr>
             ) : (
-              users.map((user, index) => (
+              users.map((user) => (
                 <tr key={user.user_id}>
-                  <td className="fw-bold text-muted">{index + 1}</td>
+                  <td className="fw-bold text-muted">{user.user_id}</td>
                   <td>
                     <div className="fw-bold">
                       {user.full_name || user.username}
                     </div>
-                    {/* <div className="small text-muted">{user.username}</div> */}
+                    <div className="small text-muted">{user.username}</div>
                   </td>
                   <td className="text-muted">{user.email}</td>
                   <td>
@@ -259,6 +286,12 @@ const UserManager = () => {
                         variant="outline-danger"
                         size="sm"
                         className="action-btn"
+                        onClick={() =>
+                          handleDeleteUser(
+                            user.user_id,
+                            user.full_name || user.username
+                          )
+                        }
                       >
                         <FaTrash />
                       </Button>
@@ -296,12 +329,13 @@ const UserManager = () => {
         )}
       </div>
 
-      {/* MODAL THÊM USER */}
+      {/* MODAL THÊM USER (Giữ nguyên) */}
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold">Thêm người dùng mới</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {/* ... Phần Form giữ nguyên như cũ ... */}
           {modalError && <Alert variant="danger">{modalError}</Alert>}
           {modalSuccess && <Alert variant="success">{modalSuccess}</Alert>}
 
@@ -318,7 +352,6 @@ const UserManager = () => {
                 placeholder="Ví dụ: admin123"
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>
                 Mật khẩu <span className="text-danger">*</span>
@@ -331,7 +364,6 @@ const UserManager = () => {
                 placeholder="Nhập mật khẩu"
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>
                 Email <span className="text-danger">*</span>
@@ -344,7 +376,6 @@ const UserManager = () => {
                 placeholder="email@example.com"
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Họ và tên</Form.Label>
               <Form.Control
@@ -355,7 +386,6 @@ const UserManager = () => {
                 placeholder="Nguyễn Văn A"
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Vai trò</Form.Label>
               <Form.Select

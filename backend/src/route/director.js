@@ -12,4 +12,11 @@ router.put(
   directorController.updateDirector
 );
 
+router.delete(
+  "/delete/:id",
+  verifyToken,
+  isAdmin,
+  directorController.deleteDirector
+);
+
 module.exports = router;
